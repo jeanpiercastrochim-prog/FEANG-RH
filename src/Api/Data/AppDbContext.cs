@@ -34,6 +34,7 @@ namespace DNIContractApi.Data
         public DbSet<AlmacenProducto> AlmacenProductos { get; set; }
         public DbSet<AlmacenInventario> AlmacenInventarios { get; set; }
         public DbSet<AlmacenMovimiento> AlmacenMovimientos { get; set; }
+        public DbSet<AlmacenRack> AlmacenRacks { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -82,8 +83,6 @@ namespace DNIContractApi.Data
                 .HasPrincipalKey(dd => new { dd.DefinicionCodigo, dd.Id })
                 .OnDelete(DeleteBehavior.Restrict);
 
-            modelBuilder.Entity<Cargo>().Property(c => c.AreaDefinicionCodigo).ValueGeneratedOnAddOrUpdate();
-            modelBuilder.Entity<Cargo>().Property(c => c.NivelDefinicionCodigo).ValueGeneratedOnAddOrUpdate();
 
             // User
             modelBuilder.Entity<User>()
@@ -175,20 +174,13 @@ namespace DNIContractApi.Data
                 .OnDelete(DeleteBehavior.Cascade);
 
             // Configure calculated persisted columns as database generated
-            modelBuilder.Entity<Employee>().Property(e => e.GeneroDefinicionCodigo).ValueGeneratedOnAddOrUpdate();
-            modelBuilder.Entity<Employee>().Property(e => e.EstadoCivilDefinicionCodigo).ValueGeneratedOnAddOrUpdate();
-            modelBuilder.Entity<Employee>().Property(e => e.EstadoEmpleadoDefinicionCodigo).ValueGeneratedOnAddOrUpdate();
-            modelBuilder.Entity<Employee>().Property(e => e.TipoContratoDefinicionCodigo).ValueGeneratedOnAddOrUpdate();
-            modelBuilder.Entity<Employee>().Property(e => e.BancoDefinicionCodigo).ValueGeneratedOnAddOrUpdate();
-            modelBuilder.Entity<Employee>().Property(e => e.TipoCuentaBancariaDefinicionCodigo).ValueGeneratedOnAddOrUpdate();
-            modelBuilder.Entity<Employee>().Property(e => e.AFPDefinicionCodigo).ValueGeneratedOnAddOrUpdate();
 
             // EmployeeEducation
             modelBuilder.Entity<EmployeeEducation>()
                 .ToTable("EmployeeEducation")
                 .HasKey(ee => ee.Id);
 
-            modelBuilder.Entity<EmployeeEducation>().Property(ee => ee.NivelEducacionDefinicionCodigo).ValueGeneratedOnAddOrUpdate();
+
 
             modelBuilder.Entity<EmployeeEducation>()
                 .HasOne(ee => ee.NivelEducacion)

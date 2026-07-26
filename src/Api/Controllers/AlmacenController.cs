@@ -68,6 +68,47 @@ namespace DNIContractApi.Controllers
             return Ok(movimientos);
         }
 
+        // GET: api/almacen/racks
+        [HttpGet("racks")]
+        public async Task<IActionResult> GetRacks()
+        {
+            var racks = await _context.AlmacenRacks.ToListAsync();
+            if (!racks.Any())
+            {
+                racks = new List<AlmacenRack>
+                {
+                    new AlmacenRack { Codigo = "H", PosicionX = 100, PosicionY = 150 },
+                    new AlmacenRack { Codigo = "G", PosicionX = 280, PosicionY = 150 },
+                    new AlmacenRack { Codigo = "F", PosicionX = 460, PosicionY = 150 },
+                    new AlmacenRack { Codigo = "E", PosicionX = 640, PosicionY = 150 },
+                    new AlmacenRack { Codigo = "D", PosicionX = 100, PosicionY = 350 },
+                    new AlmacenRack { Codigo = "C", PosicionX = 280, PosicionY = 350 },
+                    new AlmacenRack { Codigo = "B", PosicionX = 460, PosicionY = 350 },
+                    new AlmacenRack { Codigo = "A", PosicionX = 640, PosicionY = 350 }
+                };
+                _context.AlmacenRacks.AddRange(racks);
+                await _context.SaveChangesAsync();
+            }
+            return Ok(racks);
+        }
+
+        // POST: api/almacen/racks
+        [HttpPost("racks")]
+        public async Task<IActionResult> SaveRacks([FromBody] List<AlmacenRack> racks)
+        {
+            var currentRacks = await _context.AlmacenRacks.ToListAsync();
+            _context.AlmacenRacks.RemoveRange(currentRacks);
+            
+            foreach (var rack in racks)
+            {
+                rack.Id = 0;
+            }
+            _context.AlmacenRacks.AddRange(racks);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { success = true });
+        }
+
         public class IngresoRequest
         {
             public string ProductoCodigo { get; set; } = string.Empty;
@@ -75,6 +116,25 @@ namespace DNIContractApi.Controllers
             public string UbicacionRack { get; set; } = string.Empty;
             public string Documento { get; set; } = string.Empty;
             public string Responsable { get; set; } = string.Empty;
+            public string Proveedor { get; set; } = string.Empty;
+            public decimal? Peso { get; set; }
+            public string DescripcionCarga { get; set; } = string.Empty;
+        }
+
+        public class DespachoRequest
+        {
+            public string ProductoCodigo { get; set; } = string.Empty;
+            public int Cantidad { get; set; }
+            public string Documento { get; set; } = string.Empty;
+            public string Responsable { get; set; } = string.Empty;
+            public string NombreSolicitante { get; set; } = string.Empty;
+            public string AreaSolicitante { get; set; } = string.Empty;
+            public string CargoSolicitante { get; set; } = string.Empty;
+            public string VehiculoAsignado { get; set; } = string.Empty;
+            public string Turno { get; set; } = string.Empty;
+            public string Planta { get; set; } = string.Empty;
+            public string EquipoLinea { get; set; } = string.Empty;
+            public string MotivoObservacion { get; set; } = string.Empty;
         }
 
         // POST: api/almacen/ingreso
@@ -116,7 +176,10 @@ namespace DNIContractApi.Controllers
                 InventarioId = inventario.Id,
                 Cantidad = request.Cantidad,
                 DocumentoReferencia = request.Documento,
-                Responsable = request.Responsable
+                Responsable = request.Responsable,
+                Solicitante = request.Proveedor,
+                Peso = request.Peso,
+                DescripcionCarga = request.DescripcionCarga
             };
             _context.AlmacenMovimientos.Add(movimiento);
             await _context.SaveChangesAsync();
@@ -127,7 +190,7 @@ namespace DNIContractApi.Controllers
 
         // POST: api/almacen/despacho
         [HttpPost("despacho")]
-        public async Task<IActionResult> RegistrarDespacho([FromBody] IngresoRequest request)
+        public async Task<IActionResult> RegistrarDespacho([FromBody] DespachoRequest request)
         {
             // For scanner: request.Documento could be the barcode scanned
             // Here, we simulate a scan logic
@@ -146,7 +209,15 @@ namespace DNIContractApi.Controllers
                 InventarioId = inventario.Id,
                 Cantidad = request.Cantidad,
                 DocumentoReferencia = request.Documento,
-                Responsable = request.Responsable
+                Responsable = request.Responsable,
+                Solicitante = request.NombreSolicitante,
+                AreaSolicitante = request.AreaSolicitante,
+                CargoSolicitante = request.CargoSolicitante,
+                VehiculoAsignado = request.VehiculoAsignado,
+                Turno = request.Turno,
+                Planta = request.Planta,
+                EquipoLinea = request.EquipoLinea,
+                MotivoObservacion = request.MotivoObservacion
             };
             _context.AlmacenMovimientos.Add(movimiento);
             await _context.SaveChangesAsync();

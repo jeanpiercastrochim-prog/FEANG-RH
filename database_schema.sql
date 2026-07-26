@@ -1,564 +1,562 @@
-﻿-- =========================================================================
--- SCRIPT DE CREACIÃ“N DE BASE DE DATOS - SISTEMA RRHH (PRIME_RH / CHAVIN)
--- VERSIÃ“N 4
--- =========================================================================
--- Cambios respecto a v3:
---   1. Se reemplazan los 8 catÃ¡logos dedicados (Genero, EstadoCivil,
---      TipoContrato, EstadoEmpleado, NivelEducacion, Banco, AFP,
---      TipoCuentaBancaria) por UN SOLO catÃ¡logo genÃ©rico:
---         Definiciones      -> la "categorÃ­a" (GENERO, ESTADO_CIVIL, ...)
---         DefinicionDetalle -> los valores de cada categorÃ­a (M/F, etc.)
---
---      Para no perder la integridad referencial real que motivÃ³ no usar
---      EAV en la v3 (un FK genÃ©rico no puede validar por sÃ­ solo que el
---      registro pertenece a la categorÃ­a correcta), cada FK hacia
---      DefinicionDetalle es un FK COMPUESTO contra
---      (DefinicionCodigo, Id), acompaÃ±ado de una columna calculada
---      constante (ej. GeneroDefinicionCodigo = 'GENERO' siempre) en la
---      tabla que referencia. AsÃ­, el motor rechaza a nivel de base de
---      datos cualquier intento de guardar, por ejemplo, el Id de un
---      registro de "BANCO" dentro de GeneroId.
---
---      Costo: una columna calculada (PERSISTED) extra por cada FK.
---      Beneficio: 8 tablas -> 2 tablas, agregar un nuevo catÃ¡logo
---      (ej. "MOTIVO_CESE") no requiere crear tabla ni migraciÃ³n de
---      esquema, solo una fila en Definiciones + filas en
---      DefinicionDetalle.
---
---   2. Se usa Codigo (varchar) como PK natural de Definiciones en vez de
---      un Id identity, para que la constante de las columnas calculadas
---      sea legible y estable ('GENERO' en vez de un nÃºmero mÃ¡gico que
---      dependa del orden de inserciÃ³n de los seeds).
---
---   3. Las columnas "Estado" sueltas (Cargos.Estado, Contracts.Estado,
---      Payslips.Estado, EmployeeContracts.Estado, EmployeePayslips.Estado)
---      NO se tocan: ya eran VARCHAR + CHECK, nunca tuvieron tabla catÃ¡logo
---      propia en v3, asÃ­ que no aplica simplificarlas mÃ¡s.
--- =========================================================================
-
-USE [master];
-GO
-SET QUOTED_IDENTIFIER ON;
-SET ANSI_NULLS ON;
-GO
-
-IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = N'RRHHDB')
+IF OBJECT_ID(N'[__EFMigrationsHistory]') IS NULL
 BEGIN
-    CREATE DATABASE [RRHHDB];
-END
+    CREATE TABLE [__EFMigrationsHistory] (
+        [MigrationId] nvarchar(150) NOT NULL,
+        [ProductVersion] nvarchar(32) NOT NULL,
+        CONSTRAINT [PK___EFMigrationsHistory] PRIMARY KEY ([MigrationId])
+    );
+END;
 GO
 
-USE [RRHHDB];
-GO
-SET QUOTED_IDENTIFIER ON;
-SET ANSI_NULLS ON;
+BEGIN TRANSACTION;
 GO
 
-
--- =========================================================================
--- LIMPIEZA (orden inverso por dependencias)
--- =========================================================================
-IF OBJECT_ID('dbo.AuditLog', 'U') IS NOT NULL DROP TABLE dbo.AuditLog;
-IF OBJECT_ID('dbo.DniPhotos', 'U') IS NOT NULL DROP TABLE dbo.DniPhotos;
-IF OBJECT_ID('dbo.EmployeeContracts', 'U') IS NOT NULL DROP TABLE dbo.EmployeeContracts;
-IF OBJECT_ID('dbo.EmployeePayslips', 'U') IS NOT NULL DROP TABLE dbo.EmployeePayslips;
-IF OBJECT_ID('dbo.EmployeeEducation', 'U') IS NOT NULL DROP TABLE dbo.EmployeeEducation;
-IF OBJECT_ID('dbo.Employees', 'U') IS NOT NULL DROP TABLE dbo.Employees;
-IF OBJECT_ID('dbo.Contracts', 'U') IS NOT NULL DROP TABLE dbo.Contracts;
-IF OBJECT_ID('dbo.Payslips', 'U') IS NOT NULL DROP TABLE dbo.Payslips;
-IF OBJECT_ID('dbo.Cargos', 'U') IS NOT NULL DROP TABLE dbo.Cargos;
-IF OBJECT_ID('dbo.Ubigeo', 'U') IS NOT NULL DROP TABLE dbo.Ubigeo;
-IF OBJECT_ID('dbo.Users', 'U') IS NOT NULL DROP TABLE dbo.Users;
--- CatÃ¡logos dedicados de v3 (ya no existen en v4)
-IF OBJECT_ID('dbo.Genero', 'U') IS NOT NULL DROP TABLE dbo.Genero;
-IF OBJECT_ID('dbo.EstadoCivil', 'U') IS NOT NULL DROP TABLE dbo.EstadoCivil;
-IF OBJECT_ID('dbo.TipoContrato', 'U') IS NOT NULL DROP TABLE dbo.TipoContrato;
-IF OBJECT_ID('dbo.EstadoEmpleado', 'U') IS NOT NULL DROP TABLE dbo.EstadoEmpleado;
-IF OBJECT_ID('dbo.NivelEducacion', 'U') IS NOT NULL DROP TABLE dbo.NivelEducacion;
-IF OBJECT_ID('dbo.Banco', 'U') IS NOT NULL DROP TABLE dbo.Banco;
-IF OBJECT_ID('dbo.AFP', 'U') IS NOT NULL DROP TABLE dbo.AFP;
-IF OBJECT_ID('dbo.TipoCuentaBancaria', 'U') IS NOT NULL DROP TABLE dbo.TipoCuentaBancaria;
--- CatÃ¡logo genÃ©rico de v4
-IF OBJECT_ID('dbo.DefinicionDetalle', 'U') IS NOT NULL DROP TABLE dbo.DefinicionDetalle;
-IF OBJECT_ID('dbo.Definiciones', 'U') IS NOT NULL DROP TABLE dbo.Definiciones;
-GO
-
--- =========================================================================
--- CATÃLOGO GENÃ‰RICO (reemplaza a Genero, EstadoCivil, TipoContrato,
--- EstadoEmpleado, NivelEducacion, Banco, AFP, TipoCuentaBancaria)
--- =========================================================================
-
--- Definiciones = las "categorÃ­as" del catÃ¡logo.
--- Codigo es la PK natural (en mayÃºsculas, sin espacios) para que las
--- columnas calculadas constantes de las tablas hijas sean legibles.
-CREATE TABLE [dbo].[Definiciones] (
-    [Codigo] VARCHAR(30) NOT NULL,       -- 'GENERO','ESTADO_CIVIL','TIPO_CONTRATO', etc.
-    [Nombre] VARCHAR(100) NOT NULL,      -- 'GÃ©nero','Estado Civil','Tipo de Contrato'
-    [Descripcion] VARCHAR(255) NULL,
-    [Activo] BIT NOT NULL DEFAULT (1),
-    [CreatedBy]  INT NULL,
-    [CreatedAt]  DATETIME2 NOT NULL DEFAULT (GETUTCDATE()),
-    [ModifiedBy] INT NULL,
-    [ModifiedAt] DATETIME2 NULL,
-    CONSTRAINT [PK_Definiciones] PRIMARY KEY CLUSTERED ([Codigo] ASC)
+CREATE TABLE [AppNotifications] (
+    [Id] int NOT NULL IDENTITY,
+    [EmployeeDni] nvarchar(max) NOT NULL,
+    [Title] nvarchar(max) NOT NULL,
+    [Message] nvarchar(max) NOT NULL,
+    [IsRead] bit NOT NULL,
+    [CreatedAt] datetime2 NOT NULL,
+    CONSTRAINT [PK_AppNotifications] PRIMARY KEY ([Id])
 );
 GO
 
--- DefinicionDetalle = los valores de cada categorÃ­a.
--- UQ_DefinicionDetalle_DefCod_Id es la unique key que habilita que las
--- tablas hijas hagan FK compuesto (DefinicionCodigo, Id) y asÃ­ el motor
--- valide la categorÃ­a correcta, no solo que el Id exista en algÃºn lado.
-CREATE TABLE [dbo].[DefinicionDetalle] (
-    [Id]               INT IDENTITY(1,1) NOT NULL,
-    [DefinicionCodigo] VARCHAR(30) NOT NULL,
-    [Codigo]           VARCHAR(30) NOT NULL,   -- 'M','F' / 'SOLTERO','CASADO' / 'BCP','BBVA' ...
-    [Nombre]           VARCHAR(100) NOT NULL,
-    [Orden]            INT NOT NULL DEFAULT (0),
-    [Activo]           BIT NOT NULL DEFAULT (1),
-    [CreatedBy]  INT NULL,
-    [CreatedAt]  DATETIME2 NOT NULL DEFAULT (GETUTCDATE()),
-    [ModifiedBy] INT NULL,
-    [ModifiedAt] DATETIME2 NULL,
-    CONSTRAINT [PK_DefinicionDetalle] PRIMARY KEY CLUSTERED ([Id] ASC),
-    CONSTRAINT [UQ_DefinicionDetalle_DefCod_Id] UNIQUE ([DefinicionCodigo], [Id]),
-    CONSTRAINT [UQ_DefinicionDetalle_DefCod_Codigo] UNIQUE ([DefinicionCodigo], [Codigo]),
-    CONSTRAINT [FK_DefinicionDetalle_Definiciones] FOREIGN KEY ([DefinicionCodigo])
-        REFERENCES [dbo].[Definiciones]([Codigo])
+CREATE TABLE [Definiciones] (
+    [Codigo] nvarchar(450) NOT NULL,
+    [Nombre] nvarchar(max) NOT NULL,
+    [Descripcion] nvarchar(max) NULL,
+    [Activo] bit NOT NULL,
+    [CreatedBy] int NULL,
+    [CreatedAt] datetime2 NOT NULL,
+    [ModifiedBy] int NULL,
+    [ModifiedAt] datetime2 NULL,
+    CONSTRAINT [PK_Definiciones] PRIMARY KEY ([Codigo])
 );
 GO
 
-CREATE NONCLUSTERED INDEX [IX_DefinicionDetalle_DefinicionCodigo]
-    ON [dbo].[DefinicionDetalle] ([DefinicionCodigo] ASC);
-GO
-
-CREATE TABLE [dbo].[Ubigeo] (
-    [Id]           INT IDENTITY(1,1) NOT NULL,
-    [Departamento] VARCHAR(100) NOT NULL,
-    [Provincia]    VARCHAR(100) NOT NULL,
-    [Distrito]     VARCHAR(100) NOT NULL,
-    CONSTRAINT [PK_Ubigeo] PRIMARY KEY CLUSTERED ([Id] ASC),
-    CONSTRAINT [UQ_Ubigeo] UNIQUE ([Departamento], [Provincia], [Distrito])
+CREATE TABLE [Payslips] (
+    [Id] int NOT NULL IDENTITY,
+    [Periodo] datetime2 NOT NULL,
+    [CreatedAt] datetime2 NOT NULL,
+    CONSTRAINT [PK_Payslips] PRIMARY KEY ([Id])
 );
 GO
 
--- Cargos: sigue con su propio Estado (VARCHAR + CHECK), no es catÃ¡logo
--- del diccionario porque su ciclo de vida/reglas son distintas (ver nota
--- del punto 3 al inicio del script).
-CREATE TABLE [dbo].[Cargos] (
-    [Id]          INT IDENTITY(1,1) NOT NULL,
-    [Nombre]      VARCHAR(100) NOT NULL,
-    [Descripcion] VARCHAR(500) NULL,
-    [Area]        VARCHAR(100) NULL,
-    [Nivel]       VARCHAR(50) NULL,
-    [Estado]      VARCHAR(20) NOT NULL DEFAULT ('Activo'),
-    [CreatedBy]  INT NULL,
-    [CreatedAt]  DATETIME2 NOT NULL DEFAULT (GETUTCDATE()),
-    [ModifiedBy] INT NULL,
-    [ModifiedAt] DATETIME2 NULL,
-    CONSTRAINT [PK_Cargos] PRIMARY KEY CLUSTERED ([Id] ASC),
-    CONSTRAINT [UQ_Cargos_Nombre] UNIQUE ([Nombre]),
-    CONSTRAINT [CK_Cargos_Estado] CHECK ([Estado] IN ('Activo','Inactivo'))
+CREATE TABLE [Ubigeo] (
+    [Id] int NOT NULL IDENTITY,
+    [Departamento] nvarchar(max) NOT NULL,
+    [Provincia] nvarchar(max) NOT NULL,
+    [Distrito] nvarchar(max) NOT NULL,
+    CONSTRAINT [PK_Ubigeo] PRIMARY KEY ([Id])
 );
 GO
 
-CREATE TABLE [dbo].[Users] (
-    [Id]           INT IDENTITY(1,1) NOT NULL,
-    [Dni]          VARCHAR(15) NOT NULL,
-    [Email]        VARCHAR(255) NOT NULL,
-    [PasswordHash] VARBINARY(256) NOT NULL,
-    [PasswordSalt] VARBINARY(128) NOT NULL,
-    [Rol]          VARCHAR(30) NOT NULL DEFAULT ('Colaborador'),
-    [IsActive]               BIT NOT NULL DEFAULT (1),
-    [LastLogin]               DATETIME2 NULL,
-    [FailedAttempts]          INT NOT NULL DEFAULT (0),
-    [LockedUntil]             DATETIME2 NULL,
-    [RefreshTokenHash]        VARBINARY(256) NULL,
-    [RefreshTokenExpiration]  DATETIME2 NULL,
-    [CreatedBy]  INT NULL,
-    [CreatedAt]  DATETIME2 NOT NULL DEFAULT (GETUTCDATE()),
-    [ModifiedBy] INT NULL,
-    [ModifiedAt] DATETIME2 NULL,
-    CONSTRAINT [PK_Users] PRIMARY KEY CLUSTERED ([Id] ASC),
-    CONSTRAINT [UQ_Users_Dni] UNIQUE ([Dni]),
-    CONSTRAINT [UQ_Users_Email] UNIQUE ([Email]),
-    CONSTRAINT [CK_Users_Rol] CHECK ([Rol] IN ('Administrador','RRHH','Colaborador')),
-    CONSTRAINT [CK_Users_FailedAttempts] CHECK ([FailedAttempts] >= 0)
+CREATE TABLE [Users] (
+    [Id] int NOT NULL IDENTITY,
+    [Dni] nvarchar(max) NOT NULL,
+    [Email] nvarchar(max) NOT NULL,
+    [PasswordHash] varbinary(max) NOT NULL,
+    [PasswordSalt] varbinary(max) NOT NULL,
+    [Rol] nvarchar(max) NOT NULL,
+    [IsActive] bit NOT NULL,
+    [LastLogin] datetime2 NULL,
+    [FailedAttempts] int NOT NULL,
+    [LockedUntil] datetime2 NULL,
+    [RefreshTokenHash] varbinary(max) NULL,
+    [RefreshTokenExpiration] datetime2 NULL,
+    [CreatedBy] int NULL,
+    [CreatedAt] datetime2 NOT NULL,
+    [ModifiedBy] int NULL,
+    [ModifiedAt] datetime2 NULL,
+    CONSTRAINT [PK_Users] PRIMARY KEY ([Id])
 );
 GO
 
--- =========================================================================
--- TABLAS PRINCIPALES
--- =========================================================================
-
--- Employees: GeneroId, EstadoCivilId, EstadoEmpleadoId, TipoContratoId,
--- BancoId, TipoCuentaBancariaId y AFPId ahora apuntan a DefinicionDetalle.
--- Cada uno trae su columna calculada "...DefinicionCodigo" que fija la
--- categorÃ­a, y el FK real es compuesto contra (DefinicionCodigo, Id).
-CREATE TABLE [dbo].[Employees] (
-    [Id]      INT IDENTITY(1,1) NOT NULL,
-    [UserId]  INT NULL,
-    -- Datos Personales
-    [Nombres]           VARCHAR(150) NOT NULL,
-    [ApellidoPaterno]   VARCHAR(80) NOT NULL,
-    [ApellidoMaterno]   VARCHAR(80) NOT NULL,
-    [Dni]               VARCHAR(15) NOT NULL,
-    [FechaNacimiento]   DATE NOT NULL,
-    [GeneroId]              INT NOT NULL,
-    [GeneroDefinicionCodigo] AS (CAST('GENERO' AS VARCHAR(30))) PERSISTED,
-    [EstadoCivilId]              INT NOT NULL,
-    [EstadoCivilDefinicionCodigo] AS (CAST('ESTADO_CIVIL' AS VARCHAR(30))) PERSISTED,
-    [Direccion]         VARCHAR(255) NOT NULL,
-    [UbigeoId]          INT NOT NULL,
-    -- Datos de contacto
-    [Telefono]           VARCHAR(20) NULL,
-    [CorreoPersonal]     VARCHAR(255) NULL,
-    [CorreoCorporativo]  VARCHAR(255) NULL,
-    -- Datos Laborales
-    [CargoId]           INT NOT NULL,
-    [BaseSalary]        DECIMAL(18, 2) NOT NULL,
-    [EstadoEmpleadoId]              INT NOT NULL,
-    [EstadoEmpleadoDefinicionCodigo] AS (CAST('ESTADO_EMPLEADO' AS VARCHAR(30))) PERSISTED,
-    [FechaIngreso]      DATE NOT NULL,
-    [FechaCese]         DATE NULL,
-    [TipoContratoId]              INT NOT NULL,
-    [TipoContratoDefinicionCodigo] AS (CAST('TIPO_CONTRATO' AS VARCHAR(30))) PERSISTED,
-    -- Datos bancarios (opcionales -> el FK compuesto se salta si el Id es NULL)
-    [BancoId]              INT NULL,
-    [BancoDefinicionCodigo] AS (CAST('BANCO' AS VARCHAR(30))) PERSISTED,
-    [TipoCuentaBancariaId]              INT NULL,
-    [TipoCuentaBancariaDefinicionCodigo] AS (CAST('TIPO_CUENTA_BANCARIA' AS VARCHAR(30))) PERSISTED,
-    [NumeroCuenta]         VARCHAR(30) NULL,
-    [CCI]                  VARCHAR(30) NULL,
-    -- Datos pensionarios
-    [AFPId]              INT NULL,
-    [AFPDefinicionCodigo] AS (CAST('AFP' AS VARCHAR(30))) PERSISTED,
-    [CodigoAFP]  VARCHAR(20) NULL,
-    [SignatureImagePath] VARCHAR(255) NULL,
-    -- Contacto de emergencia
-    [ContactoEmergencia]  VARCHAR(150) NULL,
-    [Parentesco]          VARCHAR(50) NULL,
-    [TelefonoEmergencia]  VARCHAR(20) NULL,
-    -- AuditorÃ­a
-    [CreatedBy]  INT NULL,
-    [CreatedAt]  DATETIME2 NOT NULL DEFAULT (GETUTCDATE()),
-    [ModifiedBy] INT NULL,
-    [ModifiedAt] DATETIME2 NULL,
-
-    CONSTRAINT [PK_Employees] PRIMARY KEY CLUSTERED ([Id] ASC),
-    CONSTRAINT [UQ_Employees_Dni] UNIQUE ([Dni]),
-    CONSTRAINT [FK_Employees_Users] FOREIGN KEY ([UserId]) REFERENCES [dbo].[Users]([Id]),
-    CONSTRAINT [FK_Employees_Ubigeo] FOREIGN KEY ([UbigeoId]) REFERENCES [dbo].[Ubigeo]([Id]),
-    CONSTRAINT [FK_Employees_Cargos] FOREIGN KEY ([CargoId]) REFERENCES [dbo].[Cargos]([Id]),
-    CONSTRAINT [FK_Employees_Genero] FOREIGN KEY ([GeneroDefinicionCodigo], [GeneroId])
-        REFERENCES [dbo].[DefinicionDetalle]([DefinicionCodigo], [Id]),
-    CONSTRAINT [FK_Employees_EstadoCivil] FOREIGN KEY ([EstadoCivilDefinicionCodigo], [EstadoCivilId])
-        REFERENCES [dbo].[DefinicionDetalle]([DefinicionCodigo], [Id]),
-    CONSTRAINT [FK_Employees_EstadoEmpleado] FOREIGN KEY ([EstadoEmpleadoDefinicionCodigo], [EstadoEmpleadoId])
-        REFERENCES [dbo].[DefinicionDetalle]([DefinicionCodigo], [Id]),
-    CONSTRAINT [FK_Employees_TipoContrato] FOREIGN KEY ([TipoContratoDefinicionCodigo], [TipoContratoId])
-        REFERENCES [dbo].[DefinicionDetalle]([DefinicionCodigo], [Id]),
-    CONSTRAINT [FK_Employees_Banco] FOREIGN KEY ([BancoDefinicionCodigo], [BancoId])
-        REFERENCES [dbo].[DefinicionDetalle]([DefinicionCodigo], [Id]),
-    CONSTRAINT [FK_Employees_TipoCuentaBancaria] FOREIGN KEY ([TipoCuentaBancariaDefinicionCodigo], [TipoCuentaBancariaId])
-        REFERENCES [dbo].[DefinicionDetalle]([DefinicionCodigo], [Id]),
-    CONSTRAINT [FK_Employees_AFP] FOREIGN KEY ([AFPDefinicionCodigo], [AFPId])
-        REFERENCES [dbo].[DefinicionDetalle]([DefinicionCodigo], [Id]),
-    CONSTRAINT [CK_Employees_BaseSalary] CHECK ([BaseSalary] >= 0),
-    CONSTRAINT [CK_Employees_Fechas] CHECK ([FechaCese] IS NULL OR [FechaCese] >= [FechaIngreso])
+CREATE TABLE [DefinicionDetalle] (
+    [Id] int NOT NULL IDENTITY,
+    [DefinicionCodigo] nvarchar(450) NOT NULL,
+    [Codigo] nvarchar(max) NOT NULL,
+    [Nombre] nvarchar(max) NOT NULL,
+    [Orden] int NOT NULL,
+    [Activo] bit NOT NULL,
+    [CreatedBy] int NULL,
+    [CreatedAt] datetime2 NOT NULL,
+    [ModifiedBy] int NULL,
+    [ModifiedAt] datetime2 NULL,
+    CONSTRAINT [PK_DefinicionDetalle] PRIMARY KEY ([Id]),
+    CONSTRAINT [AK_DefinicionDetalle_DefinicionCodigo_Id] UNIQUE ([DefinicionCodigo], [Id]),
+    CONSTRAINT [FK_DefinicionDetalle_Definiciones_DefinicionCodigo] FOREIGN KEY ([DefinicionCodigo]) REFERENCES [Definiciones] ([Codigo]) ON DELETE CASCADE
 );
 GO
 
-CREATE TABLE [dbo].[EmployeeEducation] (
-    [Id]              INT IDENTITY(1,1) NOT NULL,
-    [EmployeeId]      INT NOT NULL,
-    [NivelEducacionId]              INT NOT NULL,
-    [NivelEducacionDefinicionCodigo] AS (CAST('NIVEL_EDUCACION' AS VARCHAR(30))) PERSISTED,
-    [Institucion]     VARCHAR(150) NOT NULL,
-    [Carrera]         VARCHAR(150) NULL,
-    [FechaInicio]     DATE NULL,
-    [FechaFin]        DATE NULL,
-    [Estado]          VARCHAR(20) NOT NULL DEFAULT ('En curso'),
-    [CreatedBy]  INT NULL,
-    [CreatedAt]  DATETIME2 NOT NULL DEFAULT (GETUTCDATE()),
-    [ModifiedBy] INT NULL,
-    [ModifiedAt] DATETIME2 NULL,
-    [IsDeleted]  BIT NOT NULL DEFAULT (0),
-    [DeletedBy]  INT NULL,
-    [DeletedAt]  DATETIME2 NULL,
-
-    CONSTRAINT [PK_EmployeeEducation] PRIMARY KEY CLUSTERED ([Id] ASC),
-    CONSTRAINT [FK_EmployeeEducation_Employees] FOREIGN KEY ([EmployeeId]) REFERENCES [dbo].[Employees]([Id]),
-    CONSTRAINT [FK_EmployeeEducation_NivelEducacion] FOREIGN KEY ([NivelEducacionDefinicionCodigo], [NivelEducacionId])
-        REFERENCES [dbo].[DefinicionDetalle]([DefinicionCodigo], [Id]),
-    CONSTRAINT [CK_EmployeeEducation_Estado] CHECK ([Estado] IN ('En curso','Concluido','Truncado')),
-    CONSTRAINT [CK_EmployeeEducation_Fechas] CHECK ([FechaFin] IS NULL OR [FechaInicio] IS NULL OR [FechaFin] >= [FechaInicio])
+CREATE TABLE [Cargos] (
+    [Id] int NOT NULL IDENTITY,
+    [Nombre] nvarchar(max) NOT NULL,
+    [Descripcion] nvarchar(max) NULL,
+    [AreaDefinicionCodigo] nvarchar(450) NOT NULL,
+    [AreaId] int NULL,
+    [NivelDefinicionCodigo] nvarchar(450) NOT NULL,
+    [NivelId] int NULL,
+    [SueldoBase] decimal(18,2) NOT NULL,
+    [Estado] nvarchar(max) NOT NULL,
+    [CreatedBy] int NULL,
+    [CreatedAt] datetime2 NOT NULL,
+    [ModifiedBy] int NULL,
+    [ModifiedAt] datetime2 NULL,
+    CONSTRAINT [PK_Cargos] PRIMARY KEY ([Id]),
+    CONSTRAINT [FK_Cargos_DefinicionDetalle_AreaDefinicionCodigo_AreaId] FOREIGN KEY ([AreaDefinicionCodigo], [AreaId]) REFERENCES [DefinicionDetalle] ([DefinicionCodigo], [Id]) ON DELETE NO ACTION,
+    CONSTRAINT [FK_Cargos_DefinicionDetalle_NivelDefinicionCodigo_NivelId] FOREIGN KEY ([NivelDefinicionCodigo], [NivelId]) REFERENCES [DefinicionDetalle] ([DefinicionCodigo], [Id]) ON DELETE NO ACTION
 );
 GO
 
-CREATE TABLE [dbo].[Contracts] (
-    [Id]              INT IDENTITY(1,1) NOT NULL,
-    [Name]            VARCHAR(100) NOT NULL,
-    [FilePath]        VARCHAR(500) NULL,
-    [TipoContratoId]              INT NULL,
-    [TipoContratoDefinicionCodigo] AS (CAST('TIPO_CONTRATO' AS VARCHAR(30))) PERSISTED,
-    [Version]         INT NOT NULL DEFAULT (1),
-    [FechaInicio]     DATE NULL,
-    [FechaFin]        DATE NULL,
-    [Estado]          VARCHAR(20) NOT NULL DEFAULT ('Vigente'),
-    [Observacion]     VARCHAR(500) NULL,
-    [CreatedBy]  INT NULL,
-    [CreatedAt]  DATETIME2 NOT NULL DEFAULT (GETUTCDATE()),
-    [ModifiedBy] INT NULL,
-    [ModifiedAt] DATETIME2 NULL,
-    [IsDeleted]  BIT NOT NULL DEFAULT (0),
-    [DeletedBy]  INT NULL,
-    [DeletedAt]  DATETIME2 NULL,
-
-    CONSTRAINT [PK_Contracts] PRIMARY KEY CLUSTERED ([Id] ASC),
-    CONSTRAINT [UQ_Contracts_Name] UNIQUE ([Name]),
-    CONSTRAINT [FK_Contracts_TipoContrato] FOREIGN KEY ([TipoContratoDefinicionCodigo], [TipoContratoId])
-        REFERENCES [dbo].[DefinicionDetalle]([DefinicionCodigo], [Id]),
-    CONSTRAINT [CK_Contracts_Estado] CHECK ([Estado] IN ('Vigente','Vencido','Anulado')),
-    CONSTRAINT [CK_Contracts_Fechas] CHECK ([FechaFin] IS NULL OR [FechaInicio] IS NULL OR [FechaFin] >= [FechaInicio])
+CREATE TABLE [Contracts] (
+    [Id] int NOT NULL IDENTITY,
+    [Name] nvarchar(max) NOT NULL,
+    [FilePath] nvarchar(max) NULL,
+    [CreatedAt] datetime2 NOT NULL,
+    [CargoId] int NULL,
+    CONSTRAINT [PK_Contracts] PRIMARY KEY ([Id]),
+    CONSTRAINT [FK_Contracts_Cargos_CargoId] FOREIGN KEY ([CargoId]) REFERENCES [Cargos] ([Id]) ON DELETE NO ACTION
 );
 GO
 
-CREATE TABLE [dbo].[EmployeeContracts] (
-    [Id]          UNIQUEIDENTIFIER NOT NULL DEFAULT (NEWID()),
-    [EmployeeId]  INT NOT NULL,
-    [ContractId]  INT NOT NULL,
-    [Estado]      VARCHAR(20) NOT NULL DEFAULT ('Pendiente'),
-    [SignedAt]    DATETIME2 NULL,
-    [CreatedBy]  INT NULL,
-    [CreatedAt]  DATETIME2 NOT NULL DEFAULT (GETUTCDATE()),
-    [ModifiedBy] INT NULL,
-    [ModifiedAt] DATETIME2 NULL,
-    [IsDeleted]  BIT NOT NULL DEFAULT (0),
-    [DeletedBy]  INT NULL,
-    [DeletedAt]  DATETIME2 NULL,
-
-    CONSTRAINT [PK_EmployeeContracts] PRIMARY KEY NONCLUSTERED ([Id] ASC),
-    CONSTRAINT [FK_EmployeeContracts_Employees] FOREIGN KEY ([EmployeeId]) REFERENCES [dbo].[Employees]([Id]),
-    CONSTRAINT [FK_EmployeeContracts_Contracts] FOREIGN KEY ([ContractId]) REFERENCES [dbo].[Contracts]([Id]),
-    CONSTRAINT [CK_EmployeeContracts_Estado] CHECK ([Estado] IN ('Pendiente','Firmado','Anulado'))
+CREATE TABLE [Employees] (
+    [Id] int NOT NULL IDENTITY,
+    [UserId] int NULL,
+    [Nombres] nvarchar(max) NOT NULL,
+    [ApellidoPaterno] nvarchar(max) NOT NULL,
+    [ApellidoMaterno] nvarchar(max) NOT NULL,
+    [Dni] nvarchar(max) NOT NULL,
+    [FechaNacimiento] datetime2 NOT NULL,
+    [GeneroId] int NOT NULL,
+    [GeneroDefinicionCodigo] nvarchar(450) NOT NULL,
+    [EstadoCivilId] int NOT NULL,
+    [EstadoCivilDefinicionCodigo] nvarchar(450) NOT NULL,
+    [Direccion] nvarchar(max) NOT NULL,
+    [UbigeoId] int NOT NULL,
+    [Telefono] nvarchar(max) NULL,
+    [CorreoPersonal] nvarchar(max) NULL,
+    [CorreoCorporativo] nvarchar(max) NULL,
+    [CargoId] int NOT NULL,
+    [BaseSalary] decimal(18,2) NOT NULL,
+    [EstadoEmpleadoId] int NOT NULL,
+    [EstadoEmpleadoDefinicionCodigo] nvarchar(450) NOT NULL,
+    [FechaIngreso] datetime2 NOT NULL,
+    [FechaCese] datetime2 NULL,
+    [TipoContratoId] int NOT NULL,
+    [TipoContratoDefinicionCodigo] nvarchar(450) NOT NULL,
+    [BancoId] int NULL,
+    [BancoDefinicionCodigo] nvarchar(450) NOT NULL,
+    [TipoCuentaBancariaId] int NULL,
+    [TipoCuentaBancariaDefinicionCodigo] nvarchar(450) NOT NULL,
+    [NumeroCuenta] nvarchar(max) NULL,
+    [CCI] nvarchar(max) NULL,
+    [AFPId] int NULL,
+    [AFPDefinicionCodigo] nvarchar(450) NOT NULL,
+    [CodigoAFP] nvarchar(max) NULL,
+    [SignatureImagePath] nvarchar(max) NULL,
+    [ContactoEmergencia] nvarchar(max) NULL,
+    [Parentesco] nvarchar(max) NULL,
+    [TelefonoEmergencia] nvarchar(max) NULL,
+    [CreatedBy] int NULL,
+    [CreatedAt] datetime2 NOT NULL,
+    [ModifiedBy] int NULL,
+    [ModifiedAt] datetime2 NULL,
+    CONSTRAINT [PK_Employees] PRIMARY KEY ([Id]),
+    CONSTRAINT [FK_Employees_Cargos_CargoId] FOREIGN KEY ([CargoId]) REFERENCES [Cargos] ([Id]) ON DELETE NO ACTION,
+    CONSTRAINT [FK_Employees_DefinicionDetalle_AFPDefinicionCodigo_AFPId] FOREIGN KEY ([AFPDefinicionCodigo], [AFPId]) REFERENCES [DefinicionDetalle] ([DefinicionCodigo], [Id]) ON DELETE NO ACTION,
+    CONSTRAINT [FK_Employees_DefinicionDetalle_BancoDefinicionCodigo_BancoId] FOREIGN KEY ([BancoDefinicionCodigo], [BancoId]) REFERENCES [DefinicionDetalle] ([DefinicionCodigo], [Id]) ON DELETE NO ACTION,
+    CONSTRAINT [FK_Employees_DefinicionDetalle_EstadoCivilDefinicionCodigo_EstadoCivilId] FOREIGN KEY ([EstadoCivilDefinicionCodigo], [EstadoCivilId]) REFERENCES [DefinicionDetalle] ([DefinicionCodigo], [Id]) ON DELETE NO ACTION,
+    CONSTRAINT [FK_Employees_DefinicionDetalle_EstadoEmpleadoDefinicionCodigo_EstadoEmpleadoId] FOREIGN KEY ([EstadoEmpleadoDefinicionCodigo], [EstadoEmpleadoId]) REFERENCES [DefinicionDetalle] ([DefinicionCodigo], [Id]) ON DELETE NO ACTION,
+    CONSTRAINT [FK_Employees_DefinicionDetalle_GeneroDefinicionCodigo_GeneroId] FOREIGN KEY ([GeneroDefinicionCodigo], [GeneroId]) REFERENCES [DefinicionDetalle] ([DefinicionCodigo], [Id]) ON DELETE NO ACTION,
+    CONSTRAINT [FK_Employees_DefinicionDetalle_TipoContratoDefinicionCodigo_TipoContratoId] FOREIGN KEY ([TipoContratoDefinicionCodigo], [TipoContratoId]) REFERENCES [DefinicionDetalle] ([DefinicionCodigo], [Id]) ON DELETE NO ACTION,
+    CONSTRAINT [FK_Employees_DefinicionDetalle_TipoCuentaBancariaDefinicionCodigo_TipoCuentaBancariaId] FOREIGN KEY ([TipoCuentaBancariaDefinicionCodigo], [TipoCuentaBancariaId]) REFERENCES [DefinicionDetalle] ([DefinicionCodigo], [Id]) ON DELETE NO ACTION,
+    CONSTRAINT [FK_Employees_Ubigeo_UbigeoId] FOREIGN KEY ([UbigeoId]) REFERENCES [Ubigeo] ([Id]) ON DELETE NO ACTION,
+    CONSTRAINT [FK_Employees_Users_UserId] FOREIGN KEY ([UserId]) REFERENCES [Users] ([Id]) ON DELETE SET NULL
 );
 GO
 
-CREATE TABLE [dbo].[Payslips] (
-    [Id]               INT IDENTITY(1,1) NOT NULL,
-    [Periodo]          DATE NOT NULL,
-    [FechaGeneracion]  DATETIME2 NOT NULL DEFAULT (GETUTCDATE()),
-    [FechaPago]        DATE NULL,
-    [Estado]           VARCHAR(20) NOT NULL DEFAULT ('Pendiente'),
-    [Observacion]      VARCHAR(500) NULL,
-    [CreatedBy]  INT NULL,
-    [CreatedAt]  DATETIME2 NOT NULL DEFAULT (GETUTCDATE()),
-    [ModifiedBy] INT NULL,
-    [ModifiedAt] DATETIME2 NULL,
-    [IsDeleted]  BIT NOT NULL DEFAULT (0),
-    [DeletedBy]  INT NULL,
-    [DeletedAt]  DATETIME2 NULL,
-
-    CONSTRAINT [PK_Payslips] PRIMARY KEY CLUSTERED ([Id] ASC),
-    CONSTRAINT [UQ_Payslips_Periodo] UNIQUE ([Periodo]),
-    CONSTRAINT [CK_Payslips_Estado] CHECK ([Estado] IN ('Pendiente','Generado','Pagado','Anulado'))
+CREATE TABLE [DniPhotos] (
+    [Id] int NOT NULL IDENTITY,
+    [EmployeeId] int NOT NULL,
+    [FrontImagePath] nvarchar(max) NULL,
+    [BackImagePath] nvarchar(max) NULL,
+    CONSTRAINT [PK_DniPhotos] PRIMARY KEY ([Id]),
+    CONSTRAINT [FK_DniPhotos_Employees_EmployeeId] FOREIGN KEY ([EmployeeId]) REFERENCES [Employees] ([Id]) ON DELETE CASCADE
 );
 GO
 
-CREATE TABLE [dbo].[EmployeePayslips] (
-    [Id]          INT IDENTITY(1,1) NOT NULL,
-    [EmployeeId]  INT NOT NULL,
-    [PayslipId]   INT NOT NULL,
-    [SueldoBase]     DECIMAL(18, 2) NOT NULL DEFAULT (0),
-    [HorasExtras]    DECIMAL(18, 2) NOT NULL DEFAULT (0),
-    [Bonificaciones] DECIMAL(18, 2) NOT NULL DEFAULT (0),
-    [Comisiones]     DECIMAL(18, 2) NOT NULL DEFAULT (0),
-    [AFP]              DECIMAL(18, 2) NOT NULL DEFAULT (0),
-    [ONP]              DECIMAL(18, 2) NOT NULL DEFAULT (0),
-    [Essalud]          DECIMAL(18, 2) NOT NULL DEFAULT (0),
-    [QuintaCategoria]  DECIMAL(18, 2) NOT NULL DEFAULT (0),
-    [OtrosDescuentos]  DECIMAL(18, 2) NOT NULL DEFAULT (0),
-    [NetoPagar] AS (
-        ([SueldoBase] + [HorasExtras] + [Bonificaciones] + [Comisiones])
-        - ([AFP] + [ONP] + [Essalud] + [QuintaCategoria] + [OtrosDescuentos])
-    ) PERSISTED,
-    [Estado]       VARCHAR(20) NOT NULL DEFAULT ('Pendiente'),
-    [FechaEnvio]   DATETIME2 NULL,
-    [GeneratedAt]  DATETIME2 NOT NULL DEFAULT (GETUTCDATE()),
-    [CreatedBy]  INT NULL,
-    [CreatedAt]  DATETIME2 NOT NULL DEFAULT (GETUTCDATE()),
-    [ModifiedBy] INT NULL,
-    [ModifiedAt] DATETIME2 NULL,
-    [IsDeleted]  BIT NOT NULL DEFAULT (0),
-    [DeletedBy]  INT NULL,
-    [DeletedAt]  DATETIME2 NULL,
-
-    CONSTRAINT [PK_EmployeePayslips] PRIMARY KEY CLUSTERED ([Id] ASC),
-    CONSTRAINT [FK_EmployeePayslips_Employees] FOREIGN KEY ([EmployeeId]) REFERENCES [dbo].[Employees]([Id]),
-    CONSTRAINT [FK_EmployeePayslips_Payslips] FOREIGN KEY ([PayslipId]) REFERENCES [dbo].[Payslips]([Id]),
-    CONSTRAINT [CK_EmployeePayslips_Estado] CHECK ([Estado] IN ('Pendiente','Enviado')),
-    CONSTRAINT [CK_EmployeePayslips_Montos] CHECK (
-        [SueldoBase] >= 0 AND [HorasExtras] >= 0 AND [Bonificaciones] >= 0 AND [Comisiones] >= 0
-        AND [AFP] >= 0 AND [ONP] >= 0 AND [Essalud] >= 0 AND [QuintaCategoria] >= 0 AND [OtrosDescuentos] >= 0
-    )
+CREATE TABLE [EmployeeContracts] (
+    [Id] uniqueidentifier NOT NULL,
+    [EmployeeId] int NOT NULL,
+    [ContractId] int NOT NULL,
+    [Estado] nvarchar(max) NOT NULL,
+    [SignedAt] datetime2 NULL,
+    [CreatedAt] datetime2 NOT NULL,
+    CONSTRAINT [PK_EmployeeContracts] PRIMARY KEY ([Id]),
+    CONSTRAINT [FK_EmployeeContracts_Contracts_ContractId] FOREIGN KEY ([ContractId]) REFERENCES [Contracts] ([Id]) ON DELETE CASCADE,
+    CONSTRAINT [FK_EmployeeContracts_Employees_EmployeeId] FOREIGN KEY ([EmployeeId]) REFERENCES [Employees] ([Id]) ON DELETE CASCADE
 );
 GO
 
-CREATE TABLE [dbo].[DniPhotos] (
-    [Id]             INT IDENTITY(1,1) NOT NULL,
-    [EmployeeId]     INT NOT NULL,
-    [FrontImagePath] VARCHAR(500) NULL,
-    [BackImagePath]  VARCHAR(500) NULL,
-    [Validated]      BIT NOT NULL DEFAULT (0),
-    [ValidatedBy]    INT NULL,
-    [ValidatedAt]    DATETIME2 NULL,
-    [Observation]    VARCHAR(500) NULL,
-    [CreatedBy]  INT NULL,
-    [CreatedAt]  DATETIME2 NOT NULL DEFAULT (GETUTCDATE()),
-    [ModifiedBy] INT NULL,
-    [ModifiedAt] DATETIME2 NULL,
-
-    CONSTRAINT [PK_DniPhotos] PRIMARY KEY CLUSTERED ([Id] ASC),
-    CONSTRAINT [FK_DniPhotos_Employees] FOREIGN KEY ([EmployeeId]) REFERENCES [dbo].[Employees]([Id]) ON DELETE CASCADE
+CREATE TABLE [EmployeeEducation] (
+    [Id] int NOT NULL IDENTITY,
+    [EmployeeId] int NOT NULL,
+    [NivelEducacionId] int NOT NULL,
+    [NivelEducacionDefinicionCodigo] nvarchar(450) NOT NULL,
+    [Institucion] nvarchar(max) NOT NULL,
+    [Carrera] nvarchar(max) NULL,
+    [FechaInicio] datetime2 NULL,
+    [FechaFin] datetime2 NULL,
+    [Estado] nvarchar(max) NOT NULL,
+    [CreatedBy] int NULL,
+    [CreatedAt] datetime2 NOT NULL,
+    [ModifiedBy] int NULL,
+    [ModifiedAt] datetime2 NULL,
+    CONSTRAINT [PK_EmployeeEducation] PRIMARY KEY ([Id]),
+    CONSTRAINT [FK_EmployeeEducation_DefinicionDetalle_NivelEducacionDefinicionCodigo_NivelEducacionId] FOREIGN KEY ([NivelEducacionDefinicionCodigo], [NivelEducacionId]) REFERENCES [DefinicionDetalle] ([DefinicionCodigo], [Id]) ON DELETE NO ACTION,
+    CONSTRAINT [FK_EmployeeEducation_Employees_EmployeeId] FOREIGN KEY ([EmployeeId]) REFERENCES [Employees] ([Id]) ON DELETE CASCADE
 );
 GO
 
-CREATE TABLE [dbo].[AuditLog] (
-    [Id]         BIGINT IDENTITY(1,1) NOT NULL,
-    [TableName]  VARCHAR(100) NOT NULL,
-    [RecordId]   VARCHAR(100) NOT NULL,
-    [Action]     VARCHAR(10) NOT NULL,
-    [ChangedBy]  INT NULL,
-    [ChangedAt]  DATETIME2 NOT NULL DEFAULT (GETUTCDATE()),
-    [OldValues]  NVARCHAR(MAX) NULL,
-    [NewValues]  NVARCHAR(MAX) NULL,
-    [IpAddress]        VARCHAR(45) NULL,
-    [UserAgent]        VARCHAR(500) NULL,
-    [Module]           VARCHAR(100) NULL,
-    [Device]           VARCHAR(100) NULL,
-    [Browser]          VARCHAR(100) NULL,
-    [OperatingSystem]  VARCHAR(100) NULL,
-    [RequestId]        UNIQUEIDENTIFIER NULL,
-
-    CONSTRAINT [PK_AuditLog] PRIMARY KEY CLUSTERED ([Id] ASC),
-    CONSTRAINT [CK_AuditLog_Action] CHECK ([Action] IN ('INSERT','UPDATE','DELETE'))
+CREATE TABLE [EmployeePayslips] (
+    [Id] int NOT NULL IDENTITY,
+    [EmployeeId] int NOT NULL,
+    [PayslipId] int NOT NULL,
+    [SueldoBase] decimal(18,2) NOT NULL,
+    [HorasExtras] decimal(18,2) NOT NULL,
+    [Bonificaciones] decimal(18,2) NOT NULL,
+    [Comisiones] decimal(18,2) NOT NULL,
+    [AFP] decimal(18,2) NOT NULL,
+    [ONP] decimal(18,2) NOT NULL,
+    [Essalud] decimal(18,2) NOT NULL,
+    [QuintaCategoria] decimal(18,2) NOT NULL,
+    [OtrosDescuentos] decimal(18,2) NOT NULL,
+    [NetoPagar] decimal(18,2) NOT NULL,
+    [Estado] nvarchar(max) NOT NULL,
+    [GeneratedAt] datetime2 NOT NULL,
+    CONSTRAINT [PK_EmployeePayslips] PRIMARY KEY ([Id]),
+    CONSTRAINT [FK_EmployeePayslips_Employees_EmployeeId] FOREIGN KEY ([EmployeeId]) REFERENCES [Employees] ([Id]) ON DELETE CASCADE,
+    CONSTRAINT [FK_EmployeePayslips_Payslips_PayslipId] FOREIGN KEY ([PayslipId]) REFERENCES [Payslips] ([Id]) ON DELETE CASCADE
 );
 GO
 
--- =========================================================================
--- ÃNDICES
--- =========================================================================
-CREATE NONCLUSTERED INDEX [IX_Employees_Dni] ON [dbo].[Employees] ([Dni] ASC);
-CREATE NONCLUSTERED INDEX [IX_Users_Dni] ON [dbo].[Users] ([Dni] ASC);
-CREATE NONCLUSTERED INDEX [IX_EmployeeContracts_EmployeeId] ON [dbo].[EmployeeContracts] ([EmployeeId] ASC);
-CREATE NONCLUSTERED INDEX [IX_EmployeeContracts_ContractId] ON [dbo].[EmployeeContracts] ([ContractId] ASC);
-CREATE NONCLUSTERED INDEX [IX_EmployeePayslips_EmployeeId] ON [dbo].[EmployeePayslips] ([EmployeeId] ASC);
-CREATE NONCLUSTERED INDEX [IX_EmployeePayslips_PayslipId] ON [dbo].[EmployeePayslips] ([PayslipId] ASC);
-CREATE NONCLUSTERED INDEX [IX_DniPhotos_EmployeeId] ON [dbo].[DniPhotos] ([EmployeeId] ASC);
-CREATE NONCLUSTERED INDEX [IX_AuditLog_TableRecord] ON [dbo].[AuditLog] ([TableName], [RecordId]);
-
-CREATE NONCLUSTERED INDEX [IX_Employees_CargoId] ON [dbo].[Employees] ([CargoId] ASC);
-CREATE NONCLUSTERED INDEX [IX_Employees_EstadoEmpleadoId] ON [dbo].[Employees] ([EstadoEmpleadoId] ASC);
-CREATE NONCLUSTERED INDEX [IX_Employees_FechaIngreso] ON [dbo].[Employees] ([FechaIngreso] ASC);
-CREATE NONCLUSTERED INDEX [IX_Employees_UbigeoId] ON [dbo].[Employees] ([UbigeoId] ASC);
-
-CREATE NONCLUSTERED INDEX [IX_Users_Email] ON [dbo].[Users] ([Email] ASC);
-CREATE NONCLUSTERED INDEX [IX_Users_Rol] ON [dbo].[Users] ([Rol] ASC);
-
-CREATE NONCLUSTERED INDEX [IX_EmployeeContracts_Estado] ON [dbo].[EmployeeContracts] ([Estado] ASC);
-
-CREATE NONCLUSTERED INDEX [IX_EmployeePayslips_Estado] ON [dbo].[EmployeePayslips] ([Estado] ASC);
-CREATE NONCLUSTERED INDEX [IX_EmployeePayslips_GeneratedAt] ON [dbo].[EmployeePayslips] ([GeneratedAt] ASC);
-
-CREATE NONCLUSTERED INDEX [IX_AuditLog_ChangedAt] ON [dbo].[AuditLog] ([ChangedAt] ASC);
-
-CREATE NONCLUSTERED INDEX [IX_EmployeeEducation_EmployeeId] ON [dbo].[EmployeeEducation] ([EmployeeId] ASC);
+CREATE INDEX [IX_Cargos_AreaDefinicionCodigo_AreaId] ON [Cargos] ([AreaDefinicionCodigo], [AreaId]);
 GO
 
--- =========================================================================
--- TRIGGER DE AUDITORÃA (igual que en v3)
--- =========================================================================
-CREATE OR ALTER TRIGGER [trg_Employees_Audit_Update]
-ON [dbo].[Employees]
-AFTER UPDATE
-AS
-BEGIN
-    SET NOCOUNT ON;
-    INSERT INTO [dbo].[AuditLog] ([TableName],[RecordId],[Action],[ChangedBy],[OldValues],[NewValues])
-    SELECT
-        'Employees',
-        CAST(i.Id AS VARCHAR(100)),
-        'UPDATE',
-        i.ModifiedBy,
-        (SELECT d.* FOR JSON PATH, WITHOUT_ARRAY_WRAPPER),
-        (SELECT i.* FOR JSON PATH, WITHOUT_ARRAY_WRAPPER)
-    FROM inserted i
-    JOIN deleted d ON d.Id = i.Id;
-END
+CREATE INDEX [IX_Cargos_NivelDefinicionCodigo_NivelId] ON [Cargos] ([NivelDefinicionCodigo], [NivelId]);
 GO
 
--- =========================================================================
--- SEEDS DEL CATÃLOGO GENÃ‰RICO
--- =========================================================================
-
-INSERT INTO [dbo].[Definiciones] ([Codigo], [Nombre]) VALUES
-    ('GENERO', 'GÃ©nero'),
-    ('ESTADO_CIVIL', 'Estado Civil'),
-    ('TIPO_CONTRATO', 'Tipo de Contrato'),
-    ('ESTADO_EMPLEADO', 'Estado del Empleado'),
-    ('NIVEL_EDUCACION', 'Nivel de EducaciÃ³n'),
-    ('BANCO', 'Banco'),
-    ('AFP', 'AFP'),
-    ('TIPO_CUENTA_BANCARIA', 'Tipo de Cuenta Bancaria');
+CREATE INDEX [IX_Contracts_CargoId] ON [Contracts] ([CargoId]);
 GO
 
-INSERT INTO [dbo].[DefinicionDetalle] ([DefinicionCodigo], [Codigo], [Nombre], [Orden]) VALUES
-    -- GENERO
-    ('GENERO', 'M', 'Masculino', 1),
-    ('GENERO', 'F', 'Femenino', 2),
-    -- ESTADO_CIVIL
-    ('ESTADO_CIVIL', 'SOLTERO', 'Soltero(a)', 1),
-    ('ESTADO_CIVIL', 'CASADO', 'Casado(a)', 2),
-    ('ESTADO_CIVIL', 'DIVORCIADO', 'Divorciado(a)', 3),
-    ('ESTADO_CIVIL', 'VIUDO', 'Viudo(a)', 4),
-    -- TIPO_CONTRATO
-    ('TIPO_CONTRATO', 'PLAZO_FIJO', 'Plazo Fijo', 1),
-    ('TIPO_CONTRATO', 'INDEFINIDO', 'Plazo Indefinido', 2),
-    ('TIPO_CONTRATO', 'LOCACION', 'LocaciÃ³n de Servicios', 3),
-    ('TIPO_CONTRATO', 'PRACTICAS', 'PrÃ¡cticas', 4),
-    ('TIPO_CONTRATO', 'PARCIAL', 'Tiempo Parcial', 5),
-    -- ESTADO_EMPLEADO
-    ('ESTADO_EMPLEADO', 'PENDIENTE', 'Pendiente', 1),
-    ('ESTADO_EMPLEADO', 'ACTIVO', 'Activo', 2),
-    ('ESTADO_EMPLEADO', 'INACTIVO', 'Inactivo', 3),
-    ('ESTADO_EMPLEADO', 'CESADO', 'Cesado', 4),
-    -- NIVEL_EDUCACION
-    ('NIVEL_EDUCACION', 'PRIMARIA', 'Primaria', 1),
-    ('NIVEL_EDUCACION', 'SECUNDARIA', 'Secundaria', 2),
-    ('NIVEL_EDUCACION', 'TECNICA', 'TÃ©cnica', 3),
-    ('NIVEL_EDUCACION', 'SUPERIOR', 'Superior Universitaria', 4),
-    ('NIVEL_EDUCACION', 'POSTGRADO', 'Postgrado', 5),
-    -- BANCO (ajustar segÃºn bancos con los que trabaje la empresa)
-    ('BANCO', 'BCP', 'Banco de CrÃ©dito del PerÃº', 1),
-    ('BANCO', 'BBVA', 'BBVA PerÃº', 2),
-    ('BANCO', 'INTERBANK', 'Interbank', 3),
-    ('BANCO', 'SCOTIABANK', 'Scotiabank PerÃº', 4),
-    -- AFP (las 4 que operan en PerÃº)
-    ('AFP', 'INTEGRA', 'AFP Integra', 1),
-    ('AFP', 'PRIMA', 'Prima AFP', 2),
-    ('AFP', 'PROFUTURO', 'Profuturo AFP', 3),
-    ('AFP', 'HABITAT', 'AFP Habitat', 4),
-    -- TIPO_CUENTA_BANCARIA
-    ('TIPO_CUENTA_BANCARIA', 'AHORROS', 'Cuenta de Ahorros', 1),
-    ('TIPO_CUENTA_BANCARIA', 'CORRIENTE', 'Cuenta Corriente', 2);
+CREATE UNIQUE INDEX [IX_DefinicionDetalle_DefinicionCodigo_Id] ON [DefinicionDetalle] ([DefinicionCodigo], [Id]);
 GO
 
-PRINT 'Script RRHHDB v4 ejecutado. CatÃ¡logo genÃ©rico Definiciones/DefinicionDetalle sembrado. Falta insertar seeds de Ubigeo y Cargos antes de poblar Employees.';
-GO
--- Agregado para soportar foto de perfil en el nuevo modal de Configuración de Perfil
-IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[Users]') AND name = 'FotoUrl')
-BEGIN
-    ALTER TABLE [dbo].[Users] ADD [FotoUrl] VARCHAR(MAX) NULL;
-END
+CREATE INDEX [IX_DniPhotos_EmployeeId] ON [DniPhotos] ([EmployeeId]);
 GO
 
+CREATE INDEX [IX_EmployeeContracts_ContractId] ON [EmployeeContracts] ([ContractId]);
+GO
+
+CREATE INDEX [IX_EmployeeContracts_EmployeeId] ON [EmployeeContracts] ([EmployeeId]);
+GO
+
+CREATE INDEX [IX_EmployeeEducation_EmployeeId] ON [EmployeeEducation] ([EmployeeId]);
+GO
+
+CREATE INDEX [IX_EmployeeEducation_NivelEducacionDefinicionCodigo_NivelEducacionId] ON [EmployeeEducation] ([NivelEducacionDefinicionCodigo], [NivelEducacionId]);
+GO
+
+CREATE INDEX [IX_EmployeePayslips_EmployeeId] ON [EmployeePayslips] ([EmployeeId]);
+GO
+
+CREATE INDEX [IX_EmployeePayslips_PayslipId] ON [EmployeePayslips] ([PayslipId]);
+GO
+
+CREATE INDEX [IX_Employees_AFPDefinicionCodigo_AFPId] ON [Employees] ([AFPDefinicionCodigo], [AFPId]);
+GO
+
+CREATE INDEX [IX_Employees_BancoDefinicionCodigo_BancoId] ON [Employees] ([BancoDefinicionCodigo], [BancoId]);
+GO
+
+CREATE INDEX [IX_Employees_CargoId] ON [Employees] ([CargoId]);
+GO
+
+CREATE INDEX [IX_Employees_EstadoCivilDefinicionCodigo_EstadoCivilId] ON [Employees] ([EstadoCivilDefinicionCodigo], [EstadoCivilId]);
+GO
+
+CREATE INDEX [IX_Employees_EstadoEmpleadoDefinicionCodigo_EstadoEmpleadoId] ON [Employees] ([EstadoEmpleadoDefinicionCodigo], [EstadoEmpleadoId]);
+GO
+
+CREATE INDEX [IX_Employees_GeneroDefinicionCodigo_GeneroId] ON [Employees] ([GeneroDefinicionCodigo], [GeneroId]);
+GO
+
+CREATE INDEX [IX_Employees_TipoContratoDefinicionCodigo_TipoContratoId] ON [Employees] ([TipoContratoDefinicionCodigo], [TipoContratoId]);
+GO
+
+CREATE INDEX [IX_Employees_TipoCuentaBancariaDefinicionCodigo_TipoCuentaBancariaId] ON [Employees] ([TipoCuentaBancariaDefinicionCodigo], [TipoCuentaBancariaId]);
+GO
+
+CREATE INDEX [IX_Employees_UbigeoId] ON [Employees] ([UbigeoId]);
+GO
+
+CREATE INDEX [IX_Employees_UserId] ON [Employees] ([UserId]);
+GO
+
+INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+VALUES (N'20260717223041_MigrateCargosAreaNivelSueldo', N'8.0.0');
+GO
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+GO
+
+CREATE TABLE [EmployeeRequests] (
+    [Id] int NOT NULL IDENTITY,
+    [EmployeeId] int NOT NULL,
+    [Type] nvarchar(max) NOT NULL,
+    [FormData] nvarchar(max) NOT NULL,
+    [Status] nvarchar(max) NOT NULL,
+    [Observations] nvarchar(max) NOT NULL,
+    [CreatedAt] datetime2 NOT NULL,
+    [UpdatedAt] datetime2 NULL,
+    CONSTRAINT [PK_EmployeeRequests] PRIMARY KEY ([Id]),
+    CONSTRAINT [FK_EmployeeRequests_Employees_EmployeeId] FOREIGN KEY ([EmployeeId]) REFERENCES [Employees] ([Id]) ON DELETE CASCADE
+);
+GO
+
+CREATE INDEX [IX_EmployeeRequests_EmployeeId] ON [EmployeeRequests] ([EmployeeId]);
+GO
+
+INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+VALUES (N'20260717231139_AddEmployeeRequests', N'8.0.0');
+GO
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+GO
+
+ALTER TABLE [Employees] ADD [HasBiometrics] bit NOT NULL DEFAULT CAST(0 AS bit);
+GO
+
+ALTER TABLE [Employees] ADD [ProfileImagePath] nvarchar(max) NULL;
+GO
+
+CREATE TABLE [TransViajes] (
+    [Id] int NOT NULL IDENTITY,
+    [ConductorDni] nvarchar(max) NOT NULL,
+    [UnidadPlaca] nvarchar(max) NOT NULL,
+    [Origen] nvarchar(max) NOT NULL,
+    [Destino] nvarchar(max) NOT NULL,
+    [Estado] nvarchar(max) NOT NULL,
+    [FechaInicio] datetime2 NOT NULL,
+    [FechaFin] datetime2 NULL,
+    CONSTRAINT [PK_TransViajes] PRIMARY KEY ([Id])
+);
+GO
+
+CREATE TABLE [TransAlertas] (
+    [Id] int NOT NULL IDENTITY,
+    [ViajeId] int NOT NULL,
+    [Tipo] nvarchar(max) NOT NULL,
+    [Titulo] nvarchar(max) NOT NULL,
+    [Detalle] nvarchar(max) NOT NULL,
+    [Timestamp] datetime2 NOT NULL,
+    [IsActive] bit NOT NULL,
+    CONSTRAINT [PK_TransAlertas] PRIMARY KEY ([Id]),
+    CONSTRAINT [FK_TransAlertas_TransViajes_ViajeId] FOREIGN KEY ([ViajeId]) REFERENCES [TransViajes] ([Id]) ON DELETE CASCADE
+);
+GO
+
+CREATE TABLE [TransUbicaciones] (
+    [Id] int NOT NULL IDENTITY,
+    [ViajeId] int NOT NULL,
+    [Latitud] float NOT NULL,
+    [Longitud] float NOT NULL,
+    [Velocidad] float NOT NULL,
+    [Bateria] float NOT NULL,
+    [Timestamp] datetime2 NOT NULL,
+    CONSTRAINT [PK_TransUbicaciones] PRIMARY KEY ([Id]),
+    CONSTRAINT [FK_TransUbicaciones_TransViajes_ViajeId] FOREIGN KEY ([ViajeId]) REFERENCES [TransViajes] ([Id]) ON DELETE CASCADE
+);
+GO
+
+CREATE INDEX [IX_TransAlertas_ViajeId] ON [TransAlertas] ([ViajeId]);
+GO
+
+CREATE INDEX [IX_TransUbicaciones_ViajeId] ON [TransUbicaciones] ([ViajeId]);
+GO
+
+INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+VALUES (N'20260719214647_AddTransportModels', N'8.0.0');
+GO
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+GO
+
+ALTER TABLE [TransAlertas] ADD [FotoBase64] nvarchar(max) NULL;
+GO
+
+DECLARE @var0 sysname;
+SELECT @var0 = [d].[name]
+FROM [sys].[default_constraints] [d]
+INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
+WHERE ([d].[parent_object_id] = OBJECT_ID(N'[EmployeeRequests]') AND [c].[name] = N'Type');
+IF @var0 IS NOT NULL EXEC(N'ALTER TABLE [EmployeeRequests] DROP CONSTRAINT [' + @var0 + '];');
+ALTER TABLE [EmployeeRequests] ALTER COLUMN [Type] nvarchar(max) NULL;
+GO
+
+DECLARE @var1 sysname;
+SELECT @var1 = [d].[name]
+FROM [sys].[default_constraints] [d]
+INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
+WHERE ([d].[parent_object_id] = OBJECT_ID(N'[EmployeeRequests]') AND [c].[name] = N'Status');
+IF @var1 IS NOT NULL EXEC(N'ALTER TABLE [EmployeeRequests] DROP CONSTRAINT [' + @var1 + '];');
+ALTER TABLE [EmployeeRequests] ALTER COLUMN [Status] nvarchar(max) NULL;
+GO
+
+DECLARE @var2 sysname;
+SELECT @var2 = [d].[name]
+FROM [sys].[default_constraints] [d]
+INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
+WHERE ([d].[parent_object_id] = OBJECT_ID(N'[EmployeeRequests]') AND [c].[name] = N'Observations');
+IF @var2 IS NOT NULL EXEC(N'ALTER TABLE [EmployeeRequests] DROP CONSTRAINT [' + @var2 + '];');
+ALTER TABLE [EmployeeRequests] ALTER COLUMN [Observations] nvarchar(max) NULL;
+GO
+
+DECLARE @var3 sysname;
+SELECT @var3 = [d].[name]
+FROM [sys].[default_constraints] [d]
+INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
+WHERE ([d].[parent_object_id] = OBJECT_ID(N'[EmployeeRequests]') AND [c].[name] = N'FormData');
+IF @var3 IS NOT NULL EXEC(N'ALTER TABLE [EmployeeRequests] DROP CONSTRAINT [' + @var3 + '];');
+ALTER TABLE [EmployeeRequests] ALTER COLUMN [FormData] nvarchar(max) NULL;
+GO
+
+CREATE TABLE [Almacen_Producto] (
+    [Id] int NOT NULL IDENTITY,
+    [Codigo] nvarchar(100) NOT NULL,
+    [Nombre] nvarchar(255) NOT NULL,
+    [UnidadMedida] nvarchar(50) NOT NULL,
+    [StockMinimo] int NOT NULL,
+    [ControlaVencimiento] bit NOT NULL,
+    [CreatedAt] datetime2 NOT NULL,
+    CONSTRAINT [PK_Almacen_Producto] PRIMARY KEY ([Id])
+);
+GO
+
+CREATE TABLE [Almacen_Ubicacion] (
+    [Id] int NOT NULL IDENTITY,
+    [Zona] nvarchar(50) NOT NULL,
+    [Rack] nvarchar(50) NOT NULL,
+    [Nivel] nvarchar(50) NOT NULL,
+    [Posicion] nvarchar(50) NOT NULL,
+    [CapacidadMaxima] int NOT NULL,
+    [Estado] nvarchar(20) NOT NULL,
+    [CreatedAt] datetime2 NOT NULL,
+    CONSTRAINT [PK_Almacen_Ubicacion] PRIMARY KEY ([Id])
+);
+GO
+
+CREATE TABLE [Almacen_Inventario] (
+    [Id] int NOT NULL IDENTITY,
+    [ProductoId] int NOT NULL,
+    [UbicacionId] int NOT NULL,
+    [Lote] nvarchar(50) NOT NULL,
+    [FechaVencimiento] datetime2 NULL,
+    [CantidadDisponible] int NOT NULL,
+    [LastUpdated] datetime2 NOT NULL,
+    CONSTRAINT [PK_Almacen_Inventario] PRIMARY KEY ([Id]),
+    CONSTRAINT [FK_Almacen_Inventario_Almacen_Producto_ProductoId] FOREIGN KEY ([ProductoId]) REFERENCES [Almacen_Producto] ([Id]) ON DELETE CASCADE,
+    CONSTRAINT [FK_Almacen_Inventario_Almacen_Ubicacion_UbicacionId] FOREIGN KEY ([UbicacionId]) REFERENCES [Almacen_Ubicacion] ([Id]) ON DELETE CASCADE
+);
+GO
+
+CREATE TABLE [Almacen_Movimiento] (
+    [Id] int NOT NULL IDENTITY,
+    [TipoMovimiento] nvarchar(20) NOT NULL,
+    [InventarioId] int NOT NULL,
+    [Cantidad] int NOT NULL,
+    [DocumentoReferencia] nvarchar(100) NOT NULL,
+    [Responsable] nvarchar(255) NOT NULL,
+    [Solicitante] nvarchar(255) NOT NULL,
+    [MotivoObservacion] nvarchar(500) NOT NULL,
+    [FechaMovimiento] datetime2 NOT NULL,
+    CONSTRAINT [PK_Almacen_Movimiento] PRIMARY KEY ([Id]),
+    CONSTRAINT [FK_Almacen_Movimiento_Almacen_Inventario_InventarioId] FOREIGN KEY ([InventarioId]) REFERENCES [Almacen_Inventario] ([Id]) ON DELETE CASCADE
+);
+GO
+
+CREATE INDEX [IX_Almacen_Inventario_ProductoId] ON [Almacen_Inventario] ([ProductoId]);
+GO
+
+CREATE INDEX [IX_Almacen_Inventario_UbicacionId] ON [Almacen_Inventario] ([UbicacionId]);
+GO
+
+CREATE INDEX [IX_Almacen_Movimiento_InventarioId] ON [Almacen_Movimiento] ([InventarioId]);
+GO
+
+INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+VALUES (N'20260724210949_InitialAlmacen', N'8.0.0');
+GO
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+GO
+
+ALTER TABLE [Almacen_Movimiento] ADD [Peso] decimal(18,2) NULL;
+GO
+ALTER TABLE [Almacen_Movimiento] ADD [AreaSolicitante] nvarchar(100) NOT NULL DEFAULT N'';
+GO
+ALTER TABLE [Almacen_Movimiento] ADD [CargoSolicitante] nvarchar(100) NOT NULL DEFAULT N'';
+GO
+ALTER TABLE [Almacen_Movimiento] ADD [VehiculoAsignado] nvarchar(50) NOT NULL DEFAULT N'';
+GO
+ALTER TABLE [Almacen_Movimiento] ADD [Turno] nvarchar(50) NOT NULL DEFAULT N'';
+GO
+ALTER TABLE [Almacen_Movimiento] ADD [Planta] nvarchar(100) NOT NULL DEFAULT N'';
+GO
+ALTER TABLE [Almacen_Movimiento] ADD [EquipoLinea] nvarchar(100) NOT NULL DEFAULT N'';
+GO
+ALTER TABLE [Almacen_Movimiento] ADD [DescripcionCarga] nvarchar(1000) NOT NULL DEFAULT N'';
+GO
+
+INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+VALUES (N'20260726190929_AlmacenCamposTrazabilidad', N'8.0.0');
+GO
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+GO
+
+CREATE TABLE [Almacen_Rack] (
+    [Id] int NOT NULL IDENTITY,
+    [Codigo] nvarchar(50) NOT NULL,
+    [PosicionX] int NOT NULL,
+    [PosicionY] int NOT NULL,
+    [NumeroColumnas] int NOT NULL,
+    [NumeroNiveles] int NOT NULL,
+    [CreatedAt] datetime2 NOT NULL,
+    CONSTRAINT [PK_Almacen_Rack] PRIMARY KEY ([Id])
+);
+GO
+
+INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+VALUES (N'20260726192344_AlmacenMapEditor', N'8.0.0');
+GO
+
+COMMIT;
+GO

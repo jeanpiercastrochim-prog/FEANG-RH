@@ -262,15 +262,7 @@ using (var scope = app.Services.CreateScope())
         
         db.SaveChanges();
 
-        // Ensure users for drivers are active and have 'Transportista' role
-        var driverDnis = new[] { "33333333", "44444444", "55555555" };
-        var driverUsers = db.Users.Where(u => driverDnis.Contains(u.Dni)).ToList();
-        foreach (var du in driverUsers)
-        {
-            du.IsActive = true;
-            du.Rol = "Transportista";
-        }
-        db.SaveChanges();
+
 
         // Seed demo payslips for them
         db.EmployeePayslips.Add(new EmployeePayslip {
@@ -307,6 +299,65 @@ using (var scope = app.Services.CreateScope())
 
         db.SaveChanges();
     }
+
+    // 6. Pedro (Almacén Principal)
+    if (!db.Employees.Any(e => e.Dni == "66666666"))
+    {
+        var pedroEmp = new Employee {
+            Nombres = "Pedro",
+            ApellidoPaterno = "Almacen",
+            ApellidoMaterno = "Uno",
+            Email = "pedro@chavin.com",
+            Password = "almacen123",
+            Dni = "66666666",
+            Position = "Almacenero",
+            BaseSalary = 2000,
+            HasPrimary = true,
+            HasSecondary = true
+        };
+        DbHelper.ResolveRelationsAsync(db, pedroEmp).GetAwaiter().GetResult();
+        db.Employees.Add(pedroEmp);
+    }
+
+    // 7. Juan (Almacén TI)
+    if (!db.Employees.Any(e => e.Dni == "88888888"))
+    {
+        var juanEmp = new Employee {
+            Nombres = "Juan",
+            ApellidoPaterno = "Almacen",
+            ApellidoMaterno = "Dos",
+            Email = "juan@chavin.com",
+            Password = "almacen123",
+            Dni = "88888888",
+            Position = "Almacenero",
+            BaseSalary = 1800,
+            HasPrimary = true,
+            HasSecondary = true
+        };
+        DbHelper.ResolveRelationsAsync(db, juanEmp).GetAwaiter().GetResult();
+        db.Employees.Add(juanEmp);
+    }
+    
+    db.SaveChanges();
+
+    // Ensure users for drivers are active and have 'Transportista' role
+    var driverDnis = new[] { "33333333", "44444444", "55555555" };
+    var driverUsers = db.Users.Where(u => driverDnis.Contains(u.Dni)).ToList();
+    foreach (var du in driverUsers)
+    {
+        du.Rol = "Transportista";
+        du.IsActive = true;
+    }
+
+    // Ensure users for almacen are active and have 'Almacenero' role
+    var almacenDnis = new[] { "66666666", "88888888" };
+    var almacenUsers = db.Users.Where(u => almacenDnis.Contains(u.Dni)).ToList();
+    foreach (var au in almacenUsers)
+    {
+        au.Rol = "Almacenero";
+        au.IsActive = true;
+    }
+    db.SaveChanges();
 }
 
 app.UseStaticFiles(); // For serving uploaded images

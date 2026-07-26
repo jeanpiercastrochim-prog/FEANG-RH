@@ -101,6 +101,9 @@ namespace DNIContractApi.Models.Entities
 
         public int Cantidad { get; set; }
 
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal? Peso { get; set; }
+
         [StringLength(100)]
         public string DocumentoReferencia { get; set; } = string.Empty; // Ej. Guia Nro, Codigo QR, Requerimiento Nro
 
@@ -110,9 +113,49 @@ namespace DNIContractApi.Models.Entities
         [StringLength(255)]
         public string Solicitante { get; set; } = string.Empty; // Quien retira (Para salidas) / Proveedor (Para ingresos)
 
+        [StringLength(100)]
+        public string AreaSolicitante { get; set; } = string.Empty;
+
+        [StringLength(100)]
+        public string CargoSolicitante { get; set; } = string.Empty;
+
+        [StringLength(50)]
+        public string VehiculoAsignado { get; set; } = string.Empty;
+
+        [StringLength(50)]
+        public string Turno { get; set; } = string.Empty;
+
+        [StringLength(100)]
+        public string Planta { get; set; } = string.Empty;
+
+        [StringLength(100)]
+        public string EquipoLinea { get; set; } = string.Empty;
+
+        [StringLength(1000)]
+        public string DescripcionCarga { get; set; } = string.Empty;
+
         [StringLength(500)]
         public string MotivoObservacion { get; set; } = string.Empty;
 
         public DateTime FechaMovimiento { get; set; } = DateTime.UtcNow;
+    }
+
+    // AlmacenRack: Representa un bloque visual de rack en el mapa 3D
+    [Table("Almacen_Rack")]
+    public class AlmacenRack
+    {
+        [Key]
+        public int Id { get; set; }
+
+        [Required]
+        [StringLength(50)]
+        public string Codigo { get; set; } = string.Empty; // Ej. 1, RACK-01
+
+        public int PosicionX { get; set; }
+        public int PosicionY { get; set; }
+        public int NumeroColumnas { get; set; } = 4;
+        public int NumeroNiveles { get; set; } = 3;
+
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 }

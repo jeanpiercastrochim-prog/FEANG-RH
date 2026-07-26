@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Package, LayoutDashboard, Grid, ArrowDownToLine, ArrowUpFromLine, 
   ClipboardList, FileText, Search, Plus, MapPin, CheckCircle, 
-  AlertTriangle, ScanLine, Printer, Download, LogOut, Menu, RefreshCcw 
+  AlertTriangle, ScanLine, Printer, Download, LogOut, Menu, RefreshCcw, Truck
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import jsPDF from 'jspdf';
@@ -26,12 +26,16 @@ export default function DashboardAlmacen({ user, onLogout }) {
         return <ViewDashboard />;
       case 'mapeo':
         return <ViewMapeo />;
+      case 'editor':
+        return <ViewEditorMapeo />;
       case 'recepcion':
         return <ViewRecepcion user={user} />;
       case 'despacho':
         return <ViewDespacho user={user} />;
       case 'inventario':
         return <ViewInventario />;
+      case 'contenedores':
+        return <ViewContenedores />;
       case 'kardex':
         return <ViewKardex />;
       default:
@@ -53,11 +57,13 @@ export default function DashboardAlmacen({ user, onLogout }) {
         <nav className="almacen-nav">
           <NavItem active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<LayoutDashboard size={20} />} label="Dashboard" />
           <NavItem active={activeTab === 'mapeo'} onClick={() => setActiveTab('mapeo')} icon={<Grid size={20} />} label="Mapa Almacén" />
+          <NavItem active={activeTab === 'editor'} onClick={() => setActiveTab('editor')} icon={<CheckCircle size={20} />} label="Editor de Mapa" />
           <div className="nav-divider" />
           <NavItem active={activeTab === 'recepcion'} onClick={() => setActiveTab('recepcion')} icon={<ArrowDownToLine size={20} />} label="Recepción (Ingreso)" />
           <NavItem active={activeTab === 'despacho'} onClick={() => setActiveTab('despacho')} icon={<ArrowUpFromLine size={20} />} label="Despacho (Retiro)" />
           <div className="nav-divider" />
           <NavItem active={activeTab === 'inventario'} onClick={() => setActiveTab('inventario')} icon={<ClipboardList size={20} />} label="Inventario" />
+          <NavItem active={activeTab === 'contenedores'} onClick={() => setActiveTab('contenedores')} icon={<Grid size={20} />} label="Contenedores" />
           <NavItem active={activeTab === 'kardex'} onClick={() => setActiveTab('kardex')} icon={<FileText size={20} />} label="Kardex / Historial" />
         </nav>
 
@@ -113,15 +119,17 @@ function getTabTitle(tab) {
   const titles = {
     dashboard: 'Dashboard General',
     mapeo: 'Mapa de Almacén',
+    editor: 'Editor de Mapa',
     recepcion: 'Registro de Recepción',
     despacho: 'Despacho de Mercadería',
     inventario: 'Inventario Actual',
+    contenedores: 'Gestión de Contenedores',
     kardex: 'Kardex de Movimientos'
   };
   return titles[tab] || '';
 }
 
-// --- VIEWS COMPONENTS (Mocks for Phase 1) ---
+// --- VIEWS COMPONENTS ---
 
 function ViewDashboard() {
   return (
@@ -167,24 +175,23 @@ function ViewMapeo() {
   const [rotationX, setRotationX] = useState(60);
   const [zoom, setZoom] = useState(1);
   const [controlsOpen, setControlsOpen] = useState(true);
-  const [selectedColumn, setSelectedColumn] = useState(null);
   const [selectedBox, setSelectedBox] = useState(null);
+  const [racksData, setRacksData] = useState([]);
+  
+  // Mouse drag logic
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
-  // 8 Estantes según el diagrama (2 filas x 4 columnas)
-  const racksData = [
-    // Fila Superior
-    { id: '1', x: 100, y: 150 },
-    { id: '2', x: 280, y: 150 },
-    { id: '3', x: 460, y: 150 },
-    { id: '4', x: 640, y: 150 },
-    // Fila Inferior
-    { id: '5', x: 100, y: 350 },
-    { id: '6', x: 280, y: 350 },
-    { id: '7', x: 460, y: 350 },
-    { id: '8', x: 640, y: 350 },
-  ];
+  useEffect(() => {
+    fetch('http://localhost:5051/api/almacen/racks')
+      .then(res => res.json())
+      .then(data => {
+        const mappedRacks = data.map(r => ({ id: r.codigo, x: r.posicionX, y: r.posicionY }));
+        setRacksData(mappedRacks);
+      })
+      .catch(err => console.error("Error fetching racks:", err));
+  }, []);
 
-  // Función determinista para que el mapa no cambie en cada render ni al recargar
   const getEstado = (idStr) => {
     let hash = 0;
     for (let i = 0; i < idStr.length; i++) {
@@ -194,87 +201,88 @@ function ViewMapeo() {
     return r < 60 ? 'ocupado' : r < 75 ? 'bloqueado' : 'libre';
   };
 
+  const handleMouseDown = (e) => {
+    // Solo girar si clickea el fondo (no los controles ni las cajas)
+    if (e.target.closest('.map-controls') || e.target.closest('.iso-box') || e.target.closest('.pallet-spot')) return;
+    setIsDragging(true);
+    setDragStart({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDragging) return;
+    const deltaX = e.clientX - dragStart.x;
+    const deltaY = e.clientY - dragStart.y;
+    
+    setRotationZ(prev => Number(prev) + deltaX * 0.5);
+    setRotationX(prev => Math.max(0, Math.min(90, Number(prev) - deltaY * 0.5)));
+    setDragStart({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleMouseUp = () => setIsDragging(false);
+
+  const handleWheel = (e) => {
+    if (e.target.closest('.map-controls')) return;
+    const zoomChange = e.deltaY * -0.001;
+    setZoom(prev => Math.max(0.3, Math.min(3, Number(prev) + zoomChange)));
+  };
+
   return (
     <div style={{ display: 'flex', height: 'calc(100vh - 80px)', gap: '16px', position: 'relative' }}>
-      {/* MAPA Y CONTROLES FLOTANTES */}
-      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', background: 'transparent' }}>
+      <div 
+        style={{ flex: 1, position: 'relative', overflow: 'hidden', background: 'transparent', cursor: isDragging ? 'grabbing' : 'grab' }}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        onWheel={handleWheel}
+      >
         <div className="isometric-map-wrapper">
-          <div className="map-controls" style={{ position: 'absolute', top: '20px', right: '20px', zIndex: 10, background: 'white', padding: '16px', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', width: '220px', border: '1px solid #e2e8f0' }}>
-          
+        <div className="map-controls" style={{ position: 'absolute', top: '20px', right: '20px', zIndex: 10, background: 'white', padding: '16px', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', width: '220px', border: '1px solid #e2e8f0' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: controlsOpen ? '16px' : '0' }}>
             <h4 style={{ margin: 0, fontSize: '0.95rem', color: '#0f172a' }}>📷 Control de Cámara</h4>
             <button onClick={() => setControlsOpen(!controlsOpen)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', padding: '0 4px', color: '#64748b' }}>
               {controlsOpen ? '−' : '+'}
             </button>
           </div>
-
           {controlsOpen && (
             <>
-              <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold', fontSize: '0.85rem', color: '#334155' }}>
-                Ángulo Lateral (Z): {rotationZ}°
-              </label>
+              <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold', fontSize: '0.85rem', color: '#334155' }}>Ángulo Lateral (Z): {rotationZ}°</label>
               <input type="range" min="-180" max="180" value={rotationZ} onChange={(e) => setRotationZ(e.target.value)} style={{ width: '100%', marginBottom: '12px', cursor: 'pointer' }} />
-              
-              <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold', fontSize: '0.85rem', color: '#334155' }}>
-                Inclinación (X): {rotationX}°
-              </label>
+              <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold', fontSize: '0.85rem', color: '#334155' }}>Inclinación (X): {rotationX}°</label>
               <input type="range" min="0" max="90" value={rotationX} onChange={(e) => setRotationX(e.target.value)} style={{ width: '100%', marginBottom: '12px', cursor: 'pointer' }} />
-
-              <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold', fontSize: '0.85rem', color: '#334155' }}>
-                Zoom: {Math.round(zoom * 100)}%
-              </label>
+              <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold', fontSize: '0.85rem', color: '#334155' }}>Zoom: {Math.round(zoom * 100)}%</label>
               <input type="range" min="0.5" max="2" step="0.1" value={zoom} onChange={(e) => setZoom(e.target.value)} style={{ width: '100%', cursor: 'pointer' }} />
-
               <div style={{ display: 'flex', justifyContent: 'center', marginTop: '12px' }}>
                 <button onClick={() => { setRotationZ(-30); setRotationX(60); setZoom(1); }} style={{ fontSize: '0.75rem', padding: '6px 12px', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#f8fafc', cursor: 'pointer', width: '100%', fontWeight: 'bold', color: '#334155' }}>Restablecer Vista</button>
               </div>
             </>
           )}
         </div>
-
         <div className="isometric-plane custom-layout" style={{ transform: `scale(${zoom}) rotateX(${rotationX}deg) rotateZ(${rotationZ}deg)`, transition: 'transform 0.1s ease-out' }}>
-          
-          {/* Zona Principal (Gris) */}
           <div className="main-warehouse-area">
-            
-            {/* Racks (Estantes) */}
             {racksData.map(rack => (
-              <div key={rack.id} className="iso-estante" style={{ left: rack.x, top: rack.y }}>
-                <div className="estante-floor-label">ESTANTE 0{rack.id}</div>
+              <div key={rack.id} className="iso-estante" style={{ left: parseFloat(rack.posicionX || rack.x) - 40, top: rack.posicionY || rack.y }}>
+                <div className="estante-floor-label">ESTANTE {rack.codigo || rack.id}</div>
                 <div className="estante-grid">
-                  {[0, 1, 2, 3].map(pos => (
-                    <div 
-                      key={pos} 
-                      className="pallet-spot relative" 
-                      onClick={() => { setSelectedColumn({ rackId: rack.id, pos: pos + 1 }); setSelectedBox(null); }}
-                    >
+                  {Array.from({length: rack.numeroColumnas || 4}).map((_, pos) => (
+                    <div key={pos} className="pallet-spot relative" onClick={() => { setSelectedBox(null); }}>
                       <div className="empty-pallet"></div>
-                      
-                      {/* Pilares del Rack */}
                       <div className="rack-pillar pillar-tl"></div>
                       <div className="rack-pillar pillar-tr"></div>
                       <div className="rack-pillar pillar-bl"></div>
                       <div className="rack-pillar pillar-br"></div>
                       
-                      {/* 3 Niveles */}
-                      {[0, 1, 2].map(nivel => {
-                        const boxCode = `E${rack.id}-P${pos+1}-L${nivel+1}`;
+                      {Array.from({length: rack.numeroNiveles || 3}).map((_, nivel) => {
+                        const boxCode = `${rack.codigo || rack.id}${pos+1}-N${nivel+1}`;
                         const estado = getEstado(boxCode);
                         if (estado === 'libre') return null;
-                        
                         const isSelected = selectedBox === boxCode;
-                        const boxClasses = `iso-box ${estado} ${isSelected ? 'selected' : ''}`;
-
                         return (
-                          <div key={nivel} className={boxClasses} style={{ '--base-z': `${nivel * 40}px` }}>
+                          <div key={nivel} className={`iso-box ${estado} ${isSelected ? 'selected' : ''}`} style={{ '--base-z': `${nivel * 40}px` }} onClick={(e) => { e.stopPropagation(); setSelectedBox(boxCode); }}>
                             <div className="iso-face top"></div>
                             <div className="iso-face bottom"></div>
-                            <div className="iso-face front">
-                              <span className="box-code">{boxCode}</span>
-                            </div>
-                            <div className="iso-face back">
-                              <span className="box-code">{boxCode}</span>
-                            </div>
+                            <div className="iso-face front"><span className="box-code">{boxCode}</span></div>
+                            <div className="iso-face back"><span className="box-code">{boxCode}</span></div>
                             <div className="iso-face left"></div>
                             <div className="iso-face right"></div>
                           </div>
@@ -285,8 +293,6 @@ function ViewMapeo() {
                 </div>
               </div>
             ))}
-
-            {/* Portón de Entrada y Ventana de Despacho */}
             <div className="porton-entrada">
               <span className="text-rotated">portón entrada</span>
             </div>
@@ -294,188 +300,247 @@ function ViewMapeo() {
               <span className="text-rotated">ventana de<br/>despacho</span>
             </div>
 
-          </div>
-
-          {/* Llegada de vehículos */}
-          <div className="llegada-vehiculos">
-            <span className="text-rotated-llegada">Llegada de<br/>vehículos con<br/>carga</span>
-          </div>
-
-        </div>
-        </div>
-      </div>
-
-      {/* PANEL LATERAL DERECHO (INSPECCIÓN Y ESTADÍSTICAS) */}
-      <div style={{ width: '340px', display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto', paddingRight: '4px' }}>
-        
-        {/* Tarjeta 1: Información de Ubicación */}
-        <div style={{ background: 'white', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 4px 15px rgba(0,0,0,0.02)' }}>
-          <h3 style={{ margin: '0 0 16px 0', fontSize: '1.05rem', color: '#0f172a', fontWeight: 'bold' }}>Información de Ubicación</h3>
-          
-          {selectedBox ? (
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <span style={{ fontSize: '1.1rem', fontWeight: '900', color: '#1e293b' }}>{selectedBox}</span>
-                <span className={`status-badge ${getEstado(selectedBox)}`} style={{ fontSize: '0.75rem', padding: '4px 8px', borderRadius: '6px' }}>
-                  {getEstado(selectedBox).toUpperCase()}
-                </span>
+            {/* ULTRA REALISTIC DETAILS */}
+            <div className="iso-reception-zone">
+              <div style={{ position: 'absolute', top: '-25px', left: '0px', color: '#1e293b', fontSize: '0.8rem', fontWeight: 'bold', transform: 'rotateZ(45deg) rotateX(-45deg)', whiteSpace: 'nowrap' }}>Recepción & Registro</div>
+              <div className="iso-desk">
+                <div className="iso-computer"></div>
               </div>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.85rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#64748b' }}>Zona</span><span style={{ fontWeight: '600' }}>Principal</span></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#64748b' }}>Rack</span><span style={{ fontWeight: '600' }}>{selectedBox.split('-')[0].replace('E', '')}</span></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#64748b' }}>Nivel</span><span style={{ fontWeight: '600' }}>{selectedBox.split('-')[2].replace('L', '')}</span></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#64748b' }}>Capacidad Máx.</span><span style={{ fontWeight: '600' }}>100 unidades</span></div>
-              </div>
+              <div className="iso-person"></div>
             </div>
-          ) : (
-            <div style={{ textAlign: 'center', padding: '20px 0', color: '#94a3b8', fontSize: '0.9rem' }}>
-              <Package size={32} style={{ margin: '0 auto 8px auto', opacity: 0.5 }} />
-              Selecciona una caja o espacio en el mapa para ver sus detalles aquí.
-            </div>
-          )}
-        </div>
-
-        {/* Tarjeta 2: Resumen por Estado */}
-        <div style={{ background: 'white', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 4px 15px rgba(0,0,0,0.02)' }}>
-          <h3 style={{ margin: '0 0 16px 0', fontSize: '1.05rem', color: '#0f172a', fontWeight: 'bold' }}>Resumen por Estado</h3>
-          
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-            {/* Gráfico de dona (simulado con CSS) */}
-            <div style={{ 
-              width: '100px', height: '100px', borderRadius: '50%', 
-              background: 'conic-gradient(#22c55e 0% 30%, #f59e0b 30% 65%, #ef4444 65% 90%, #64748b 90% 100%)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}>
-              <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'white' }}></div>
-            </div>
-            
-            {/* Leyenda */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.85rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e' }}></div>Libre</span><span style={{ color: '#64748b' }}>38 (31.7%)</span></div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f59e0b' }}></div>Parcial</span><span style={{ color: '#64748b' }}>44 (36.7%)</span></div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444' }}></div>Ocupado</span><span style={{ color: '#64748b' }}>32 (26.7%)</span></div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#64748b' }}></div>Bloqueado</span><span style={{ color: '#64748b' }}>6 (5.0%)</span></div>
+            <div className="walking-person"></div>
+          </div>
+          <div className="llegada-vehiculos" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '30px' }}>
+            <span className="text-rotated-llegada">Zona de<br/>Desembarque</span>
+            <div className="truck-model" style={{ transform: 'rotateZ(-45deg)', background: '#cbd5e1', width: '120px', height: '50px', borderRadius: '8px', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '5px 5px 15px rgba(0,0,0,0.3)', border: '2px solid #94a3b8' }}>
+               <Truck size={36} color="#334155" />
+               <div style={{ position: 'absolute', right: '-15px', width: '30px', height: '40px', background: '#3b82f6', borderRadius: '6px', border: '2px solid #1d4ed8' }}></div>
             </div>
           </div>
         </div>
-
-        {/* Tarjeta 3: Filtros */}
-        <div style={{ background: 'white', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 4px 15px rgba(0,0,0,0.02)' }}>
-          <h3 style={{ margin: '0 0 16px 0', fontSize: '1.05rem', color: '#0f172a', fontWeight: 'bold' }}>Filtros y Visualización</h3>
-          
-          <select style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '12px', outline: 'none' }}>
-            <option>Todos los Estados</option>
-            <option>Libres</option>
-            <option>Ocupados</option>
-          </select>
-          
-          <select style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '16px', outline: 'none' }}>
-            <option>Todas las Zonas</option>
-            <option>Zona Principal</option>
-          </select>
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <span style={{ fontSize: '0.9rem', color: '#334155', fontWeight: '500' }}>Mostrar Nombres de Racks</span>
-            <div style={{ width: '40px', height: '22px', background: '#3b82f6', borderRadius: '11px', position: 'relative', cursor: 'pointer' }}>
-              <div style={{ width: '18px', height: '18px', background: 'white', borderRadius: '50%', position: 'absolute', top: '2px', right: '2px' }}></div>
-            </div>
-          </div>
-
-          <button onClick={() => { setRotationZ(-30); setRotationX(60); setZoom(1); }} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#3b82f6', fontWeight: 'bold', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
-            <RefreshCcw size={16} />
-            Actualizar Mapa
-          </button>
         </div>
       </div>
     </div>
   );
 }
 
+function ViewEditorMapeo() {
+  const [racks, setRacks] = useState([]);
+  const [rotationZ] = useState(-30);
+  const [rotationX] = useState(60);
+  const [zoom, setZoom] = useState(1);
+  const [selectedRack, setSelectedRack] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    fetch('http://localhost:5051/api/almacen/racks')
+      .then(res => res.json())
+      .then(data => setRacks(data))
+      .catch(err => console.error("Error fetching racks:", err));
+  }, []);
+
+  const handleSave = () => {
+    setIsSaving(true);
+    fetch('http://localhost:5051/api/almacen/racks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(racks)
+    })
+    .then(() => { alert("Guardado"); setIsSaving(false); })
+    .catch(() => { alert("Error"); setIsSaving(false); });
+  };
+
+  const getEstado = (idStr) => {
+    let hash = 0;
+    for (let i = 0; i < idStr.length; i++) hash = idStr.charCodeAt(i) + ((hash << 5) - hash);
+    const r = Math.abs(hash) % 100;
+    return r < 60 ? 'ocupado' : r < 75 ? 'bloqueado' : 'libre';
+  };
+
+  return (
+    <div style={{ display: 'flex', height: 'calc(100vh - 80px)', gap: '16px' }}>
+      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', background: '#f8fafc', borderRadius: '12px' }}>
+        <div style={{ position: 'absolute', top: '20px', right: '20px', zIndex: 10, background: 'white', padding: '16px', borderRadius: '12px' }}>
+          <button onClick={handleSave} className="btn-primary" style={{ background: '#10b981' }}>{isSaving ? 'Guardando...' : 'Guardar Mapa'}</button>
+        </div>
+        <div className="isometric-plane custom-layout" style={{ transform: `scale(${zoom}) rotateX(${rotationX}deg) rotateZ(${rotationZ}deg)`, transition: 'transform 0.1s ease-out' }}>
+          <div className="main-warehouse-area">
+            {racks.map(rack => (
+              <div key={rack.codigo} className="iso-estante" style={{ left: parseFloat(rack.posicionX) - 40, top: rack.posicionY }} onClick={() => setSelectedRack(rack)}>
+                <div className="estante-floor-label" style={{ background: selectedRack?.codigo === rack.codigo ? '#3b82f6' : 'rgba(0,0,0,0.8)' }}>ESTANTE {rack.codigo}</div>
+                <div className="estante-grid">
+                  {Array.from({length: rack.numeroColumnas}).map((_, col) => (
+                    <div key={col} className="pallet-spot relative">
+                      <div className="empty-pallet"></div>
+                      <div className="rack-pillar pillar-tl"></div>
+                      <div className="rack-pillar pillar-tr"></div>
+                      <div className="rack-pillar pillar-bl"></div>
+                      <div className="rack-pillar pillar-br"></div>
+                      {Array.from({length: rack.numeroNiveles}).map((_, lvl) => {
+                        const boxCode = `${rack.codigo}${col+1}-N${lvl+1}`;
+                        const estado = getEstado(boxCode);
+                        if (estado === 'libre') return null;
+                        return (
+                          <div key={lvl} className={`iso-box ${estado}`} style={{ '--base-z': `${lvl * 40}px` }}>
+                            <div className="iso-face top"></div>
+                            <div className="iso-face bottom"></div>
+                            <div className="iso-face front"><span className="box-code">{boxCode}</span></div>
+                            <div className="iso-face back"><span className="box-code">{boxCode}</span></div>
+                            <div className="iso-face left"></div>
+                            <div className="iso-face right"></div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+            <div className="porton-entrada">
+              <span className="text-rotated">portón entrada</span>
+            </div>
+            <div className="ventana-despacho">
+              <span className="text-rotated">ventana de<br/>despacho</span>
+            </div>
+
+            {/* ULTRA REALISTIC DETAILS */}
+            <div className="iso-reception-zone">
+              <div style={{ position: 'absolute', top: '-25px', left: '0px', color: '#1e293b', fontSize: '0.8rem', fontWeight: 'bold', transform: 'rotateZ(45deg) rotateX(-45deg)', whiteSpace: 'nowrap' }}>Recepción & Registro</div>
+              <div className="iso-desk">
+                <div className="iso-computer"></div>
+              </div>
+              <div className="iso-person"></div>
+            </div>
+            <div className="walking-person"></div>
+          </div>
+          <div className="llegada-vehiculos" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '30px' }}>
+            <span className="text-rotated-llegada">Zona de<br/>Desembarque</span>
+            <div className="truck-model" style={{ transform: 'rotateZ(-45deg)', background: '#cbd5e1', width: '120px', height: '50px', borderRadius: '8px', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '5px 5px 15px rgba(0,0,0,0.3)', border: '2px solid #94a3b8' }}>
+               <Truck size={36} color="#334155" />
+               <div style={{ position: 'absolute', right: '-15px', width: '30px', height: '40px', background: '#3b82f6', borderRadius: '6px', border: '2px solid #1d4ed8' }}></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style={{ width: '340px', background: 'white', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <h3 style={{ margin: '0 0 16px 0', fontSize: '1.05rem', color: '#0f172a' }}>Propiedades del Estante</h3>
+        {selectedRack ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div>
+              <label style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 'bold' }}>Código de Rack</label>
+              <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontWeight: 'bold', color: '#1e293b' }}>
+                RACK-{selectedRack.codigo}
+              </div>
+            </div>
+            
+            <div style={{ marginTop: '20px', padding: '16px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+              <QRCodeSVG value={`RACK-${selectedRack.codigo}`} size={120} style={{ margin: '0 auto 10px auto' }} />
+              <p style={{ fontSize: '1rem', fontWeight: 'bold', color: '#0f172a' }}>RACK-{selectedRack.codigo}</p>
+              <button className="btn-secondary" onClick={() => window.print()} style={{ width: '100%', marginTop: '10px', display: 'flex', justifyContent: 'center', gap: '8px' }}>
+                <Printer size={18}/> Imprimir QR
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', color: '#94a3b8', padding: '30px 10px' }}>
+            <ScanLine size={32} style={{ opacity: 0.5, margin: '0 auto 12px auto' }} />
+            <p>Selecciona un estante en el mapa para ver sus detalles e imprimir el QR físico.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ViewContenedores() {
+    const [racks, setRacks] = useState([]);
+    useEffect(() => {
+        fetch('http://localhost:5051/api/almacen/racks')
+          .then(res => res.json())
+          .then(data => setRacks(data))
+          .catch(err => console.error(err));
+    }, []);
+
+    return (
+        <div className="module-container">
+          <h2 className="module-title">Contenedores del almacén (Estructura)</h2>
+          <div className="glass-card" style={{ padding: '20px' }}>
+            <table className="prime-table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                  <th style={{ padding: '12px' }}>Código</th>
+                  <th style={{ padding: '12px' }}>Zona/Rack</th>
+                  <th style={{ padding: '12px' }}>Columna</th>
+                  <th style={{ padding: '12px' }}>Nivel</th>
+                  <th style={{ padding: '12px' }}>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {racks.map(rack => (
+                  Array.from({length: rack.numeroColumnas || 4}).map((_, col) => (
+                    Array.from({length: rack.numeroNiveles || 3}).map((_, lvl) => {
+                      const id = `R${rack.codigo}-C${col+1}-N${lvl+1}`;
+                      return (
+                        <tr key={id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ padding: '12px', fontWeight: 'bold' }}>{id}</td>
+                          <td style={{ padding: '12px' }}>{rack.codigo}</td>
+                          <td style={{ padding: '12px' }}>{col+1}</td>
+                          <td style={{ padding: '12px' }}>{lvl+1}</td>
+                          <td style={{ padding: '12px' }}><span className="status-badge status-success">Libre</span></td>
+                        </tr>
+                      )
+                    })
+                  ))
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+}
+
 function ViewRecepcion({ user }) {
-  const [formData, setFormData] = useState({
-    proveedor: '', producto: '', cantidad: '', unidad: 'Unidades', zona: 'A-1'
-  });
-  const [generatedCode, setGeneratedCode] = useState(null);
+  const [step, setStep] = useState(1);
+  const [racks, setRacks] = useState([]);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const code = `ALM-${Date.now().toString().slice(-6)}`;
-    setGeneratedCode({ ...formData, code, date: new Date() });
-    alert("Recepción registrada correctamente.");
-  };
-
-  const handlePrint = () => {
-    window.print();
-  };
+  useEffect(() => {
+    fetch('http://localhost:5051/api/almacen/racks')
+      .then(res => res.json())
+      .then(data => setRacks(data))
+      .catch(err => console.error(err));
+  }, []);
 
   return (
     <div className="recepcion-container">
       <div className="form-card">
-        <h3>Registrar Ingreso</h3>
-        <form onSubmit={handleSubmit} className="recepcion-form">
-          <div className="form-row">
-            <div className="form-group">
-              <label>Producto / Material</label>
-              <input required value={formData.producto} onChange={e => setFormData({...formData, producto: e.target.value})} placeholder="Ej: Casco de Seguridad" />
-            </div>
-            <div className="form-group">
-              <label>Proveedor / Área Origen</label>
-              <input required value={formData.proveedor} onChange={e => setFormData({...formData, proveedor: e.target.value})} placeholder="Ej: 3M Perú" />
-            </div>
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label>Cantidad</label>
-              <input type="number" required value={formData.cantidad} onChange={e => setFormData({...formData, cantidad: e.target.value})} />
-            </div>
-            <div className="form-group">
-              <label>Unidad de Medida</label>
-              <select value={formData.unidad} onChange={e => setFormData({...formData, unidad: e.target.value})}>
-                <option>Unidades</option>
-                <option>Cajas</option>
-                <option>Kg</option>
-                <option>Litros</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Ubicación (Destino)</label>
-              <select value={formData.zona} onChange={e => setFormData({...formData, zona: e.target.value})}>
-                <option value="A-1">Zona A - Rack 1</option>
-                <option value="B-3">Zona B - Rack 3</option>
-                <option value="C-2">Zona C - Rack 2</option>
-              </select>
-            </div>
-          </div>
-          <button type="submit" className="btn-primary">Registrar y Generar QR</button>
-        </form>
-      </div>
+        <h3>Registrar Ingreso de Mercadería</h3>
+        <div className="form-group">
+            <label>Condición al Recibir</label>
+            <select className="form-input">
+              <option>En buen estado</option>
+              <option>Empaque Dañado</option>
+              <option>Incompleto</option>
+            </select>
+        </div>
 
-      {generatedCode && (
-        <div className="ticket-preview-card">
-          <div className="ticket-header">
-            <h3>Hoja de Recepción (Vista Previa)</h3>
-            <button className="btn-secondary" onClick={handlePrint}><Printer size={16}/> Imprimir Etiqueta</button>
-          </div>
-          <div className="ticket-body" id="printable-ticket">
-            <div className="ticket-logo">
-              <Package size={32} color="#0f172a" />
-              <h2>CHAVIN LOGISTICS</h2>
-            </div>
-            <div className="ticket-qr">
-               <QRCodeSVG value={generatedCode.code} size={120} />
-               <p className="ticket-code">{generatedCode.code}</p>
-            </div>
-            <div className="ticket-details">
-              <p><strong>Producto:</strong> {generatedCode.producto}</p>
-              <p><strong>Cantidad:</strong> {generatedCode.cantidad} {generatedCode.unidad}</p>
-              <p><strong>Ubicación:</strong> {generatedCode.zona}</p>
-              <p><strong>Fecha:</strong> {generatedCode.date.toLocaleString('es-ES')}</p>
-              <p><strong>Recibido por:</strong> {user?.nombres}</p>
-            </div>
+        <h4 style={{ color: '#0f172a', marginBottom: '15px', marginTop: '30px' }}>Ubicación en Almacén</h4>
+        <div className="form-grid">
+          <div className="form-group">
+            <label>Asignar a Zona/Rack (Opcional)</label>
+            <select className="form-input">
+              <option value="">-- Seleccionar Zona --</option>
+              {racks.map(r => (
+                <option key={r.codigo} value={r.codigo}>Zona / Rack {r.codigo}</option>
+              ))}
+            </select>
           </div>
         </div>
-      )}
+
+        <div style={{ marginTop: '30px', display: 'flex', gap: '15px', justifyContent: 'flex-end' }}>
+          <button type="button" className="btn-secondary" onClick={() => setStep(1)}>Volver</button>
+          <button type="button" className="btn-primary" onClick={() => setStep(3)}>Procesar Ingreso</button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -485,94 +550,21 @@ function ViewDespacho({ user }) {
   const [foundProduct, setFoundProduct] = useState(null);
   const inputRef = useRef(null);
 
-  useEffect(() => {
-    // Auto-focus para la pistola lectora
-    if (inputRef.current) inputRef.current.focus();
-  }, []);
+  useEffect(() => { if (inputRef.current) inputRef.current.focus(); }, []);
 
   const handleScan = (e) => {
     e.preventDefault();
-    if (scanCode.trim() === '') return;
-    
-    // Simular búsqueda en BD local
-    setFoundProduct({
-      code: scanCode,
-      producto: 'Casco de Seguridad 3M',
-      stockDisponible: 150,
-      zona: 'A-1',
-      unidad: 'Unidades'
-    });
-  };
-
-  const handleRetiro = (e) => {
-    e.preventDefault();
-    alert(`Retiro de ${scanCode} registrado exitosamente.`);
-    setFoundProduct(null);
-    setScanCode('');
-    if (inputRef.current) inputRef.current.focus();
+    setFoundProduct({ code: scanCode, producto: 'Casco de Seguridad 3M', stockDisponible: 150, zona: 'A-1', unidad: 'Unidades' });
   };
 
   return (
     <div className="despacho-container">
       <div className="scan-card">
-        <div className="scan-icon-pulse"><ScanLine size={48} color="#3b82f6" /></div>
-        <h3>Escanear Código de Retiro</h3>
-        <p>Use la pistola lectora o escriba el código QR generado en la recepción.</p>
-        
         <form onSubmit={handleScan} className="scan-form">
-          <input 
-            ref={inputRef}
-            type="text" 
-            placeholder="Esperando lectura de código..." 
-            value={scanCode}
-            onChange={e => setScanCode(e.target.value)}
-            className="scan-input"
-            autoFocus
-          />
+          <input ref={inputRef} type="text" value={scanCode} onChange={e => setScanCode(e.target.value)} className="scan-input" />
           <button type="submit" className="btn-primary">Buscar</button>
         </form>
       </div>
-
-      {foundProduct && (
-        <div className="retiro-form-card">
-          <h3>Confirmar Retiro</h3>
-          <div className="product-info-box">
-            <div className="info-item">
-              <span className="info-label">Producto</span>
-              <span className="info-value">{foundProduct.producto}</span>
-            </div>
-            <div className="info-item">
-              <span className="info-label">Stock Disponible</span>
-              <span className="info-value text-green">{foundProduct.stockDisponible} {foundProduct.unidad}</span>
-            </div>
-            <div className="info-item">
-              <span className="info-label">Ubicación</span>
-              <span className="info-value">{foundProduct.zona}</span>
-            </div>
-          </div>
-
-          <form onSubmit={handleRetiro} className="retiro-form">
-            <div className="form-row">
-              <div className="form-group">
-                <label>Solicitante / Área</label>
-                <input required placeholder="Ej: Juan Pérez - Mantenimiento" />
-              </div>
-              <div className="form-group">
-                <label>Cantidad a Retirar</label>
-                <input type="number" required max={foundProduct.stockDisponible} placeholder="Ej: 5" />
-              </div>
-            </div>
-            <div className="form-group">
-              <label>Motivo (Opcional)</label>
-              <input placeholder="Ej: Reposición de EPPs" />
-            </div>
-            <div className="form-actions">
-              <button type="button" className="btn-secondary" onClick={() => { setFoundProduct(null); setScanCode(''); }}>Cancelar</button>
-              <button type="submit" className="btn-primary bg-orange">Confirmar Retiro (Descontar Stock)</button>
-            </div>
-          </form>
-        </div>
-      )}
     </div>
   );
 }

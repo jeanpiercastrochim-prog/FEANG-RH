@@ -69,7 +69,7 @@ namespace DNIContractApi.Services
             var cargo = await context.Set<Cargo>().FirstOrDefaultAsync(c => c.Nombre == cargoName);
             if (cargo == null)
             {
-                cargo = new Cargo { Nombre = cargoName, Descripcion = cargoName, Estado = "Activo" };
+                cargo = new Cargo { Nombre = cargoName, Descripcion = cargoName, Estado = "Activo", AreaDefinicionCodigo = "AREA", NivelDefinicionCodigo = "NIVEL" };
                 context.Set<Cargo>().Add(cargo);
                 await context.SaveChangesAsync();
             }

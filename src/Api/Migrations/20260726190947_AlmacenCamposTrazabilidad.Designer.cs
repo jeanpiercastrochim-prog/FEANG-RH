@@ -4,6 +4,7 @@ using DNIContractApi.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace DNIContractApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260726190947_AlmacenCamposTrazabilidad")]
+    partial class AlmacenCamposTrazabilidad
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -212,39 +215,6 @@ namespace DNIContractApi.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Almacen_Producto");
-                });
-
-            modelBuilder.Entity("DNIContractApi.Models.Entities.AlmacenRack", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Codigo")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("NumeroColumnas")
-                        .HasColumnType("int");
-
-                    b.Property<int>("NumeroNiveles")
-                        .HasColumnType("int");
-
-                    b.Property<int>("PosicionX")
-                        .HasColumnType("int");
-
-                    b.Property<int>("PosicionY")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Almacen_Rack");
                 });
 
             modelBuilder.Entity("DNIContractApi.Models.Entities.AlmacenUbicacion", b =>

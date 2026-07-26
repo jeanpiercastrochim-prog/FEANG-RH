@@ -23,7 +23,6 @@ namespace DNIContractApi.Models.Entities
         public decimal QuintaCategoria { get; set; }
         public decimal OtrosDescuentos { get; set; }
 
-        [DatabaseGenerated(DatabaseGeneratedOption.Computed)]
         public decimal NetoPagar { get; set; }
 
         [NotMapped]

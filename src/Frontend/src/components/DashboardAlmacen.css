@@ -325,8 +325,8 @@
 
 .isometric-plane {
   position: relative;
-  width: 1050px;
-  height: 600px;
+  width: 1200px;
+  height: 700px;
   transform-style: preserve-3d;
   /* Rotate to match diagram's top-down angled perspective */
   transform: rotateX(60deg) rotateZ(-30deg);
@@ -337,7 +337,7 @@
 /* Zona Principal del Almacén */
 .main-warehouse-area {
   position: relative;
-  width: 800px;
+  width: 900px;
   height: 100%;
   background: #cbd5e1; /* Gris claro como la imagen */
   border-radius: 24px;
@@ -347,32 +347,35 @@
   transform-style: preserve-3d;
 }
 
-/* Llegada de vehículos */
+/* Llegada de vehículos (Pista) */
 .llegada-vehiculos {
   position: relative;
-  width: 230px;
+  width: 180px; /* Reduced from 280px */
   height: 90%;
   margin-top: 5%;
-  background: #cbd5e1;
+  background: #475569; /* Color oscuro como asfalto/pista */
   border-radius: 24px;
   display: flex;
+  flex-direction: column; /* Stack text and truck */
   align-items: center;
   justify-content: center;
-  box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+  gap: 80px; /* Space between text and truck */
+  box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+  border-left: 5px dashed #cbd5e1;
 }
 .text-rotated-llegada {
   transform: rotateZ(90deg);
-  font-size: 1.8rem;
+  font-size: 1.6rem;
   font-weight: 900;
   text-align: center;
-  color: #1e293b;
+  color: #94a3b8; /* Lighter text for dark road */
   line-height: 1.2;
 }
 
 /* Portón y Ventana */
 .porton-entrada, .ventana-despacho {
   position: absolute;
-  right: 20px;
+  right: 15px;
   width: 50px;
   background: #574e46; /* Marrón oscuro */
   display: flex;
@@ -392,7 +395,7 @@
   transform: rotateZ(90deg);
   color: white;
   font-weight: bold;
-  font-size: 1.2rem;
+  font-size: 0.8rem; /* Shrunk from 1.2rem */
   white-space: nowrap;
 }
 
@@ -659,6 +662,149 @@
 /* Despacho */
 .scan-card {
   text-align: center;
+}
+
+/* --- Ultra Realistic Details --- */
+.truck-model {
+  transform: rotateZ(-90deg); /* Point straight down the road */
+  background: #cbd5e1;
+  width: 140px;
+  height: 70px;
+  border-radius: 12px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 15px 15px 30px rgba(0,0,0,0.5);
+  border: 3px solid #94a3b8;
+  transform-style: preserve-3d;
+}
+.truck-model::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: #94a3b8;
+  transform: translateZ(40px);
+  border-radius: 12px;
+}
+.truck-model::after {
+  content: '';
+  position: absolute;
+  right: -25px;
+  width: 50px;
+  height: 60px;
+  background: #3b82f6;
+  border-radius: 8px;
+  border: 3px solid #1d4ed8;
+  transform: translateZ(25px);
+  box-shadow: inset 0 0 15px rgba(0,0,0,0.4);
+}
+
+.iso-reception-zone {
+  position: absolute;
+  top: 150px; /* Much further back (towards top) */
+  right: 350px; /* Safe distance to the left of the road/text */
+  width: 150px;
+  height: 100px;
+  transform-style: preserve-3d;
+}
+
+.iso-desk {
+  position: absolute;
+  bottom: 20px;
+  left: 30px;
+  width: 80px;
+  height: 40px;
+  background: #8b5a2b;
+  box-shadow: 5px 5px 15px rgba(0,0,0,0.4);
+  transform-style: preserve-3d;
+}
+.iso-desk::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: #a0522d;
+  transform: translateZ(30px);
+}
+
+.iso-computer {
+  position: absolute;
+  top: 10px;
+  left: 30px;
+  width: 20px;
+  height: 5px;
+  background: #334155;
+  transform: translateZ(32px);
+  transform-style: preserve-3d;
+}
+.iso-computer::before {
+  content: '';
+  position: absolute;
+  bottom: 5px;
+  left: 0;
+  width: 20px;
+  height: 25px;
+  background: #f8fafc;
+  transform-origin: bottom;
+  transform: rotateX(-60deg);
+  border: 2px solid #cbd5e1;
+}
+
+.iso-person {
+  position: absolute;
+  bottom: 0px;
+  left: 45px;
+  width: 20px;
+  height: 20px;
+  background: #1d4ed8;
+  border-radius: 50%;
+  transform: translateZ(15px);
+  box-shadow: 5px 5px 10px rgba(0,0,0,0.3);
+  transform-style: preserve-3d;
+}
+.iso-person::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: #fcd34d;
+  border-radius: 50%;
+  transform: translateZ(20px);
+}
+
+.walking-person {
+  position: absolute;
+  top: 200px;
+  left: 100px;
+  width: 20px;
+  height: 20px;
+  background: #ef4444;
+  border-radius: 50%;
+  transform: translateZ(15px);
+  animation: walk 20s infinite linear;
+  box-shadow: 5px 5px 10px rgba(0,0,0,0.3);
+  transform-style: preserve-3d;
+}
+.walking-person::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: #fcd34d;
+  border-radius: 50%;
+  transform: translateZ(20px);
+}
+
+@keyframes walk {
+  0% { top: 200px; left: 100px; }
+  25% { top: 200px; left: 750px; }
+  50% { top: 500px; left: 750px; }
+  75% { top: 500px; left: 100px; }
+  100% { top: 200px; left: 100px; }
 }
 .scan-icon-pulse {
   width: 96px;
