@@ -1,0 +1,7 @@
+paddlepaddle
+paddleocr
+paddle2onnx
+opencv-python
+pillow
+numpy
+label-studio

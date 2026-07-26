@@ -1,0 +1,833 @@
+Plan de acción detallado para el sistema OCR de DNI y autollenado de contratos
+PLAN_ACCION_OCR_DNI.md
+
+Ejecutando comando
+bash
+
+mkdir -p /home/claude && cat > /home/claude/PLAN_ACCION_OCR_DNI.md << 'ENDOFFILE'
+# 📋 Plan de Acción — Sistema OCR Inteligente para Digitalización de Contratos
+**Stack:** .NET 8 / C# · ASP.NET Core Web API · Python (entrenamiento) · ONNX Runtime · React (frontend)  
+**Versión del plan:** 1.0 — Junio 2026  
+**Elaborado para:** Equipo técnico interno
+
+---
+
+## 🗺️ Visión general del sistema
+
+El sistema tendrá tres grandes componentes:
+
+1. **Modelo de IA (OCR de DNI):** entrenado en Python, exportado a ONNX, consumido desde C#
+2. **Backend API:** ASP.NET Core que orquesta todo el flujo (recibir foto → extraer datos → generar contrato → servir PDF)
+3. **Frontend de RH:** interfaz simple (tablet/PC) donde el operador toma la foto, confirma datos y manda a imprimir
+
+---
+
+## 📦 Stack tecnológico completo
+
+| Capa | Tecnología | Motivo |
+|---|---|---|
+| Lenguaje backend | C# / .NET 8 | Stack definido, multiplataforma, LTS |
+| Framework API | ASP.NET Core Web API | REST, robusto, fácil de desplegar en Windows |
+| OCR / Inferencia | ONNX Runtime para .NET (`Microsoft.ML.OnnxRuntime`) | Corre modelo Python exportado sin deps externas |
+| Entrenamiento del modelo | Python 3.11 · PaddleOCR | Mejor OCR open source para documentos en español |
+| Exportación a ONNX | `paddle2onnx` | Convierte modelo al formato que consume .NET |
+| Preprocesamiento de imagen | OpenCV (Python/entrenamiento) · ImageSharp (C#/runtime) | Normalización, deskew, contraste |
+| Generación de contratos | QuestPDF (C#) | Genera PDF del contrato con datos rellenados |
+| Base de datos (logs) | SQLite | Guardar registros de contratos generados |
+| Frontend operador | React + Vite | Interfaz para RH: cámara, confirmación, imprimir |
+| Captura de imagen | WebRTC (API de cámara del navegador) | Fotografiar el DNI desde tablet/PC |
+| Comunicación | HTTP/JSON REST | Simple, bien soportado |
+| Despliegue | Windows con Kestrel standalone o IIS | Sin costo adicional de infraestructura |
+| Control de versiones | Git | Versionado del código y del modelo |
+
+---
+
+## 🔀 Flujo completo del sistema (en producción)
+
+```
+[RH abre app en el navegador del tablet/PC]
+    → [Toma foto del DNI con cámara web vía WebRTC]
+    → [Frontend envía imagen al backend vía HTTP POST]
+    → [Backend preprocesa imagen (normaliza, recorta, ajusta contraste)]
+    → [Modelo ONNX infiere: extrae campos del DNI]
+    → [Backend retorna JSON con los campos extraídos]
+    → [Frontend muestra datos para confirmación + campo "nivel educativo" manual]
+    → [RH confirma / corrige si hay algo incorrecto]
+    → [Frontend envía datos confirmados al backend]
+    → [Backend aplica datos a la plantilla del contrato]
+    → [Backend genera PDF del contrato listo]
+    → [Frontend muestra PDF y lanza impresión]
+    → [Trabajador firma y pone huella en papel impreso]
+```
+
+---
+
+## 📅 Fases del proyecto
+
+---
+
+## ✅ FASE 1 — Diagnóstico y preparación del entorno
+**Duración estimada:** 1–2 semanas  
+**Objetivo:** Tener completamente claro qué datos se necesitan, cómo es el flujo real, y el entorno de desarrollo listo para arrancar.
+
+### 1.1 Relevamiento de datos del contrato
+
+- Conseguir el archivo de la plantilla del contrato actual (Word, PDF o el formato que usen)
+- Listar **todos los campos** del contrato e identificar cuáles vienen del DNI y cuáles se ingresan manualmente:
+  - **Del DNI:** nombres, apellido paterno, apellido materno, número de DNI, fecha de nacimiento, sexo, dirección, ubigeo
+  - **Manuales:** nivel educativo (primaria/secundaria completa o incompleta), cargo, fecha de inicio, área
+- Mapear exactamente qué campo del DNI corresponde a qué campo del contrato
+- Documentar los casos borde: DNI vencido, datos ilegibles, dirección muy larga, nombres con tildes o ñ
+
+### 1.2 Relevamiento del volumen real y hardware disponible
+
+- Confirmar con RH el volumen real diario (min/max/promedio de personas por día)
+- Identificar qué dispositivos hay disponibles: tablets, PCs, cámaras web
+- Determinar si hay red interna (LAN) o si el sistema correrá completamente offline en una sola máquina
+- Verificar que la PC/servidor donde correrá el backend tenga al menos 4 GB de RAM (para el modelo ONNX)
+
+### 1.3 Recolección inicial del dataset de DNIs
+
+- Recolectar **mínimo 200 imágenes de DNI peruano** (con consentimiento del personal)
+- Incluir variedad de: modelos de DNI (antiguo azul, nuevo electrónico), condiciones de luz, ángulos leves, calidad de cámara diferente
+- Crear estructura de carpetas:
+  ```
+  dataset/
+  ├── raw/          ← imágenes originales sin procesar
+  ├── annotated/    ← imágenes con anotaciones de campos
+  └── splits/
+      ├── train/
+      ├── val/
+      └── test/
+  ```
+- Definir formato de anotación: JSON por imagen con los campos y sus valores reales (ground truth)
+
+### 1.4 Setup del entorno de desarrollo
+
+- Instalar .NET 8 SDK en la máquina de desarrollo
+- Instalar Python 3.11 + crear entorno virtual (`venv` o `conda`)
+- Instalar dependencias Python iniciales:
+  ```bash
+  pip install paddleocr paddlepaddle paddle2onnx opencv-python pillow numpy label-studio
+  ```
+- Instalar dependencias .NET iniciales:
+  ```bash
+  dotnet add package Microsoft.ML.OnnxRuntime
+  dotnet add package Microsoft.ML.OnnxRuntime.Managed
+  dotnet add package QuestPDF
+  dotnet add package SixLabors.ImageSharp
+  ```
+- Crear repositorio Git con estructura inicial de carpetas del proyecto
+- Configurar `.gitignore` para excluir modelos grandes (`.onnx`, dataset) del repo — usar carpeta separada o Git LFS
+
+### 1.5 Definición de la arquitectura de carpetas del proyecto
+
+```
+/DNIContractSystem
+├── /src
+│   ├── /Api                    ← ASP.NET Core Web API
+│   │   ├── Controllers/
+│   │   ├── Services/
+│   │   ├── Models/
+│   │   └── Program.cs
+│   ├── /Core                   ← Lógica de negocio, interfaces
+│   ├── /Infrastructure         ← Implementaciones concretas
+│   └── /Frontend               ← React app
+├── /ml
+│   ├── /data                   ← Dataset (gitignored)
+│   ├── /training               ← Scripts Python de entrenamiento
+│   ├── /evaluation             ← Scripts de evaluación del modelo
+│   └── /export                 ← Scripts de exportación a ONNX
+├── /models                     ← Modelos .onnx (gitignored, distribuir aparte)
+├── /templates                  ← Plantillas de contratos
+└── /docs                       ← Documentación técnica
+```
+
+### Entregables de la Fase 1
+- [ ] Lista definitiva de campos del contrato mapeados al DNI
+- [ ] Dataset inicial de 200+ imágenes de DNI recolectadas
+- [ ] Entorno de desarrollo funcional (Python + .NET)
+- [ ] Repositorio Git creado con estructura de carpetas
+- [ ] Documento de arquitectura técnica aprobado internamente
+
+---
+
+## ✅ FASE 2 — Entrenamiento del modelo OCR de DNI
+**Duración estimada:** 4–6 semanas  
+**Objetivo:** Tener un modelo de IA capaz de recibir una foto de DNI y devolver un JSON con todos los campos extraídos, con precisión >= 95%.
+
+### 2.1 Estrategia del modelo
+
+**Enfoque seleccionado: PaddleOCR con fine-tuning**
+
+PaddleOCR es el OCR open source con mejor desempeño en documentos de identidad latinoamericanos. El enfoque será:
+1. Usar PaddleOCR preentrenado como base (ya sabe leer texto)
+2. Fine-tunear con imágenes de DNI peruano para mejorar precisión en ese dominio
+3. Agregar una capa de **extracción de campos**: dado el texto detectado, asignarlo al campo correcto (nombre, apellido, DNI, etc.)
+
+### 2.2 Preparación y anotación del dataset
+
+- Usar **Label Studio** (open source, corre local) para anotar:
+  ```bash
+  label-studio start
+  ```
+- Anotar cada imagen marcando los bounding boxes de cada campo:
+  - `nombres`, `apellido_paterno`, `apellido_materno`, `dni`, `fecha_nacimiento`, `sexo`, `direccion`, `ubigeo`
+- Exportar anotaciones en formato PaddleOCR (txt con coordenadas y texto)
+- División del dataset:
+  - 70% entrenamiento (`train/`)
+  - 15% validación (`val/`)
+  - 15% test final (`test/`)
+- Script de augmentación de datos (multiplicar el dataset x5 sin más fotos reales):
+  ```python
+  # augmentation.py — aplicar a imágenes de entrenamiento:
+  # - rotaciones leves (±5°)
+  # - variación de brillo/contraste
+  # - blur leve (simula cámara desenfocada)
+  # - ruido gaussiano
+  # - recortes con padding (simula encuadres distintos)
+  ```
+
+### 2.3 Pipeline de preprocesamiento de imagen (Python)
+
+```python
+# preprocess.py
+import cv2
+import numpy as np
+
+def preprocess_dni(image_path):
+    img = cv2.imread(image_path)
+
+    # 1. Convertir a escala de grises
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    # 2. Deskew (corregir inclinación leve con Hough Transform)
+
+    # 3. Normalizar contraste (CLAHE - maneja sombras y zonas oscuras)
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+    enhanced = clahe.apply(gray)
+
+    # 4. Binarización adaptativa (para manejar reflejos)
+    binary = cv2.adaptiveThreshold(enhanced, 255,
+                                    cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                                    cv2.THRESH_BINARY, 11, 2)
+
+    # 5. Resize a dimensión estándar
+    resized = cv2.resize(binary, (800, 500))
+
+    return resized
+```
+
+### 2.4 Entrenamiento del modelo
+
+**Paso A — Detección de regiones (dónde está cada campo):**
+```bash
+python tools/train.py -c configs/det/ch_PP-OCRv4_det_student.yml \
+    -o Global.pretrained_model=pretrain_models/ch_PP-OCRv4_det_distill_train \
+    Global.save_model_dir=./output/dni_det/
+```
+
+**Paso B — Reconocimiento de texto (qué dice cada región):**
+- Fine-tunear el modelo de reconocimiento con crops de texto del DNI peruano
+- Los DNIs usan fuente OCR-B estándar, lo que facilita el reconocimiento
+
+**Paso C — Post-procesamiento y asignación de campos:**
+Reglas heurísticas para asignar texto al campo correcto:
+- 8 dígitos numéricos consecutivos → número de DNI
+- Formato DD/MM/YYYY en zona superior → fecha de nacimiento
+- Texto "M" o "F" en posición conocida → sexo
+- Texto en zona superior izquierda → nombres/apellidos (por posición relativa)
+
+### 2.5 Métricas mínimas aceptables (antes de pasar a Fase 3)
+
+| Campo | Accuracy mínima |
+|---|---|
+| Número de DNI | >= 99% |
+| Nombres | >= 95% |
+| Apellidos | >= 95% |
+| Fecha de nacimiento | >= 99% |
+| Sexo | >= 99% |
+| Dirección | >= 90% |
+
+### 2.6 Exportación del modelo a ONNX
+
+```bash
+# Exportar modelo de detección
+paddle2onnx \
+  --model_dir ./output/dni_det/best_accuracy \
+  --model_filename inference.pdmodel \
+  --params_filename inference.pdiparams \
+  --save_file ./models/dni_det.onnx \
+  --opset_version 11
+
+# Exportar modelo de reconocimiento
+paddle2onnx \
+  --model_dir ./output/dni_rec/best_accuracy \
+  --model_filename inference.pdmodel \
+  --params_filename inference.pdiparams \
+  --save_file ./models/dni_rec.onnx \
+  --opset_version 11
+
+# Verificar validez del ONNX
+python -c "import onnx; onnx.checker.check_model('models/dni_det.onnx'); print('OK')"
+```
+
+Al final de la Fase 2 tendremos:
+```
+/models
+├── dni_det.onnx       ← modelo de detección de regiones de texto
+└── dni_rec.onnx       ← modelo de reconocimiento de texto
+```
+
+### Entregables de la Fase 2
+- [ ] Dataset anotado de 200+ imágenes (con augmentación: ~1000+ muestras)
+- [ ] Modelo entrenado con métricas documentadas superando los mínimos
+- [ ] Dos archivos `.onnx` exportados y validados
+- [ ] Script de evaluación con reporte de métricas por campo
+- [ ] Documentación del pipeline de preprocesamiento replicable
+
+---
+
+## ✅ FASE 3 — Desarrollo del Backend (ASP.NET Core Web API)
+**Duración estimada:** 3–5 semanas  
+**Objetivo:** API REST funcional que reciba una imagen, corra el modelo ONNX, extraiga los datos, genere el contrato en PDF y lo sirva.
+
+### 3.1 Crear el proyecto
+
+```bash
+dotnet new webapi -n DNIContractApi --framework net8.0
+cd DNIContractApi
+dotnet add package Microsoft.ML.OnnxRuntime
+dotnet add package Microsoft.ML.OnnxRuntime.Managed
+dotnet add package QuestPDF
+dotnet add package SixLabors.ImageSharp
+dotnet add package Microsoft.Data.Sqlite
+```
+
+### 3.2 Estructura del proyecto
+
+```
+DNIContractApi/
+├── Controllers/
+│   ├── OcrController.cs           ← POST /api/ocr/extract
+│   └── ContractController.cs      ← POST /api/contract/generate
+├── Services/
+│   ├── IOcrService.cs
+│   ├── OcrService.cs              ← Inferencia con ONNX Runtime
+│   ├── IContractService.cs
+│   ├── ContractService.cs         ← Generación de PDF con QuestPDF
+│   └── ImagePreprocessingService.cs
+├── Models/
+│   ├── DniData.cs                 ← Campos extraídos del DNI
+│   ├── ContractData.cs            ← Datos completos del contrato
+│   └── OcrResult.cs
+├── Templates/
+│   └── contrato_template.json     ← Estructura de la plantilla
+├── Models/                        ← Carpeta con los .onnx
+│   ├── dni_det.onnx
+│   └── dni_rec.onnx
+├── appsettings.json
+└── Program.cs
+```
+
+### 3.3 Servicio OCR en C# (ONNX Runtime)
+
+```csharp
+// Services/OcrService.cs
+using Microsoft.ML.OnnxRuntime;
+using Microsoft.ML.OnnxRuntime.Tensors;
+
+public class OcrService : IOcrService, IDisposable
+{
+    private readonly InferenceSession _detSession;
+    private readonly InferenceSession _recSession;
+    private readonly ImagePreprocessingService _preprocessor;
+
+    public OcrService(IConfiguration config, ImagePreprocessingService preprocessor)
+    {
+        var modelPath = config["Models:Path"];
+        var options = new SessionOptions();
+        options.ExecutionMode = ExecutionMode.ORT_SEQUENTIAL;
+
+        _detSession = new InferenceSession(
+            Path.Combine(modelPath, "dni_det.onnx"), options);
+        _recSession = new InferenceSession(
+            Path.Combine(modelPath, "dni_rec.onnx"), options);
+        _preprocessor = preprocessor;
+    }
+
+    public async Task<OcrResult> ExtractAsync(byte[] imageBytes)
+    {
+        // 1. Preprocesar imagen
+        var processedImage = _preprocessor.Preprocess(imageBytes);
+
+        // 2. Crear tensor de entrada para detección
+        // 3. Correr sesión de detección → obtener bounding boxes de cada campo
+        // 4. Para cada bounding box, recortar región y correr reconocimiento
+        // 5. Asignar textos detectados a campos con lógica de post-procesamiento
+        // 6. Calcular score de confianza por campo
+        // 7. Retornar OcrResult con DniData y scores
+
+        return new OcrResult { /* ... */ };
+    }
+
+    public void Dispose()
+    {
+        _detSession?.Dispose();
+        _recSession?.Dispose();
+    }
+}
+```
+
+### 3.4 Preprocesamiento de imagen en C# (ImageSharp)
+
+```csharp
+// Services/ImagePreprocessingService.cs
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Processing;
+
+public class ImagePreprocessingService
+{
+    public byte[] Preprocess(byte[] inputImage)
+    {
+        using var image = Image.Load(inputImage);
+
+        image.Mutate(ctx => ctx
+            .AutoOrient()          // corregir orientación EXIF
+            .Grayscale()           // escala de grises
+            .Contrast(1.2f)        // aumentar contraste
+            .Resize(800, 500)      // tamaño estándar para el modelo
+        );
+
+        using var ms = new MemoryStream();
+        image.SaveAsPng(ms);
+        return ms.ToArray();
+    }
+}
+```
+
+### 3.5 Endpoints de la API
+
+**POST /api/ocr/extract**
+```
+Request:  multipart/form-data  { "image": <archivo> }
+Response: application/json
+{
+  "success": true,
+  "confidence": 0.97,
+  "data": {
+    "nombres": "JUAN CARLOS",
+    "apellidoPaterno": "GARCIA",
+    "apellidoMaterno": "LOPEZ",
+    "numeroDni": "12345678",
+    "fechaNacimiento": "15/03/1990",
+    "sexo": "M",
+    "direccion": "AV. LOS HEROES 123, SAN JUAN DE LURIGANCHO",
+    "ubigeo": "150132"
+  },
+  "fieldConfidences": {
+    "numeroDni": 0.99,
+    "nombres": 0.96,
+    "direccion": 0.88
+  },
+  "warnings": ["Dirección con confianza baja, verificar manualmente"]
+}
+```
+
+**POST /api/contract/generate**
+```
+Request: application/json
+{
+  "dniData": { ...campos confirmados por RH... },
+  "additionalData": {
+    "nivelEducativo": "secundaria_completa",
+    "cargo": "OPERARIO",
+    "fechaInicio": "2026-06-23",
+    "area": "PRODUCCION"
+  }
+}
+Response: application/pdf  ← PDF listo para imprimir
+```
+
+**GET /api/health**
+```
+Response: { "status": "ok", "modelsLoaded": true, "version": "1.0.0" }
+```
+
+### 3.6 Generación del contrato con QuestPDF
+
+```csharp
+// Services/ContractService.cs
+using QuestPDF.Fluent;
+using QuestPDF.Infrastructure;
+
+public class ContractService : IContractService
+{
+    public byte[] GenerateContract(ContractData data)
+    {
+        return Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                page.Size(PageSizes.A4);
+                page.Margin(2, Unit.Centimetre);
+
+                page.Content().Column(col =>
+                {
+                    // Encabezado
+                    col.Item().Text("CONTRATO DE TRABAJO")
+                       .Bold().FontSize(14).AlignCenter();
+
+                    col.Item().PaddingTop(10);
+
+                    // Datos del trabajador (autollenados)
+                    col.Item().Text($"Apellidos y Nombres: {data.NombreCompleto}");
+                    col.Item().Text($"DNI: {data.NumeroDni}");
+                    col.Item().Text($"Fecha de Nacimiento: {data.FechaNacimiento}");
+                    col.Item().Text($"Sexo: {data.Sexo}");
+                    col.Item().Text($"Dirección: {data.Direccion}");
+                    col.Item().Text($"Nivel Educativo: {data.NivelEducativo}");
+                    col.Item().Text($"Cargo: {data.Cargo}");
+                    col.Item().Text($"Área: {data.Area}");
+                    col.Item().Text($"Fecha de Inicio: {data.FechaInicio}");
+
+                    // Cuerpo del contrato (cláusulas)
+                    // ... agregar el texto legal del contrato real aquí
+
+                    // Espacio para firma y huella (físicas)
+                    col.Item().PaddingTop(50).Row(row =>
+                    {
+                        row.RelativeItem().Column(c =>
+                        {
+                            c.Item().BorderBottom(1).Height(40).Text("");
+                            c.Item().Text("Firma del Trabajador").AlignCenter();
+                            c.Item().Text($"DNI: {data.NumeroDni}").AlignCenter();
+                        });
+                        row.ConstantItem(30);
+                        row.RelativeItem().Column(c =>
+                        {
+                            c.Item().Border(1).Height(70).Text("").AlignCenter();
+                            c.Item().Text("Huella Dactilar").AlignCenter();
+                        });
+                    });
+                });
+            });
+        }).GeneratePdf();
+    }
+}
+```
+
+### 3.7 Configuración (appsettings.json)
+
+```json
+{
+  "Models": {
+    "Path": "Models/"
+  },
+  "Cors": {
+    "AllowedOrigins": ["http://localhost:5173", "http://192.168.1.100:5173"]
+  },
+  "Contract": {
+    "OutputPath": "Output/contracts/"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  }
+}
+```
+
+### 3.8 Manejo de errores
+
+- Middleware global de excepciones en `Program.cs`
+- Logging de cada llamada OCR: timestamp, tiempo de procesamiento, campos detectados, confianza promedio
+- Códigos de respuesta claros:
+  - `400` → imagen corrupta o vacía
+  - `422` → no se detectó DNI válido en la imagen
+  - `500` → error interno (detalle en logs, no en respuesta al cliente)
+
+### Entregables de la Fase 3
+- [ ] API REST con los 3 endpoints funcionando
+- [ ] Servicio OCR en C# consumiendo los modelos `.onnx`
+- [ ] Servicio de generación de PDF con la plantilla real del contrato
+- [ ] Manejo de errores y logging implementado
+- [ ] Tests unitarios de los servicios principales (xUnit)
+- [ ] Colección Postman o archivo `.http` para probar los endpoints
+
+---
+
+## ✅ FASE 4 — Desarrollo del Frontend (Interfaz para RH)
+**Duración estimada:** 2–3 semanas  
+**Objetivo:** Interfaz simple, rápida y sin errores que el personal de RH pueda usar sin capacitación técnica avanzada.
+
+### 4.1 Setup del proyecto React
+
+```bash
+npm create vite@latest dni-contract-frontend -- --template react
+cd dni-contract-frontend
+npm install axios react-webcam
+```
+
+### 4.2 Pantallas principales
+
+**Pantalla 1 — Captura de DNI (`CameraCapture.jsx`)**
+- Muestra vista de la cámara en tiempo real (react-webcam con `facingMode: "environment"` para cámara trasera en tablet)
+- Botón grande: "FOTOGRAFIAR DNI"
+- Vista previa de la foto tomada
+- Botones: "Usar esta foto" / "Volver a tomar"
+- Al confirmar: envía imagen al backend (`POST /api/ocr/extract`)
+- Muestra loader mientras procesa: "Leyendo DNI..."
+- Si hay error: "No se pudo leer el DNI. Por favor tome otra foto."
+
+**Pantalla 2 — Confirmación de datos (`DataConfirmation.jsx`)**
+- Muestra los datos extraídos en campos editables
+- Campos con confianza baja (< 90%) resaltados en amarillo con ícono de advertencia
+- Campo adicional: Nivel Educativo (dropdown con 4 opciones)
+- Campos adicionales: Cargo, Área, Fecha de inicio
+- Botón: "Confirmar y generar contrato"
+- Botón: "Volver a fotografiar"
+
+**Pantalla 3 — Vista previa e impresión (`ContractPreview.jsx`)**
+- Muestra el PDF generado en visor inline (`<iframe>` con el PDF)
+- Botón grande y prominente: "IMPRIMIR CONTRATO"
+- Botón: "Nuevo contrato" (resetea el flujo completo)
+- Botón: "Descargar PDF" (backup si la impresión directa falla)
+
+### 4.3 Captura de imagen con WebRTC
+
+```jsx
+import Webcam from 'react-webcam';
+import { useRef, useCallback } from 'react';
+
+const videoConstraints = {
+  width: 1280,
+  height: 720,
+  facingMode: "environment"  // cámara trasera en tablet
+};
+
+function CameraCapture({ onCapture }) {
+  const webcamRef = useRef(null);
+
+  const capture = useCallback(() => {
+    const imageSrc = webcamRef.current.getScreenshot();
+    // imageSrc es base64; convertir a blob y enviar al backend
+    onCapture(imageSrc);
+  }, [webcamRef]);
+
+  return (
+    <>
+      <Webcam
+        audio={false}
+        screenshotFormat="image/jpeg"
+        screenshotQuality={0.95}
+        videoConstraints={videoConstraints}
+        ref={webcamRef}
+      />
+      <button onClick={capture}>FOTOGRAFIAR DNI</button>
+    </>
+  );
+}
+```
+
+### 4.4 Principios de diseño UX para el entorno de RH
+
+- Fuentes grandes (mínimo 16px), botones grandes (fáciles de tocar en tablet)
+- Colores de estado: verde (OK), amarillo (revisar campo), rojo (error)
+- Sin jerga técnica: el operador nunca ve "error 422", solo "No se pudo leer el DNI"
+- Flujo estrictamente lineal: Paso 1 → Paso 2 → Paso 3 → Nuevo contrato
+- Responsive: funciona bien en tablet (768px+) y monitor de escritorio
+- El botón de imprimir es el elemento más grande y visible de la Pantalla 3
+
+### Entregables de la Fase 4
+- [ ] Pantalla de captura de cámara funcional
+- [ ] Pantalla de confirmación de datos con campos editables y resaltado por confianza
+- [ ] Pantalla de vista previa e impresión
+- [ ] Integración completa con la API del backend
+- [ ] Manejo de errores amigable en todas las pantallas
+- [ ] Prueba en el dispositivo real (tablet o PC del puesto de RH)
+
+---
+
+## ✅ FASE 5 — Integración, Piloto y Pruebas
+**Duración estimada:** 1–2 semanas  
+**Objetivo:** Probar el sistema completo con trabajadores reales en condiciones reales, detectar y corregir errores antes del despliegue general.
+
+### 5.1 Casos de prueba obligatorios
+
+| Caso | Descripción | Resultado esperado |
+|---|---|---|
+| DNI nuevo (electrónico, fondo dorado) | Tipo de DNI más común hoy | Lectura exitosa sin correcciones |
+| DNI antiguo (azul) | Todavía en circulación | Lectura exitosa, puede requerir más contraste |
+| Nombre muy largo (>30 chars) | Ej: "MARIA DE LOS ANGELES" | Se captura completo sin truncar |
+| Dirección muy larga | Más de 60 caracteres | Se captura completa o avisa para verificar |
+| Foto con poca luz | Tomada en oficina con luz artificial | Preprocesamiento compensa, lectura correcta |
+| Foto con leve ángulo (< 10°) | Error de encuadre común | Deskew corrige, lectura correcta |
+| DNI desgastado o rayado | Documento en mal estado | Sistema avisa; fallback a ingreso manual |
+| Doble foto (necesita refoto) | Primera foto borrosa | Sistema pide nueva foto; segunda intenta OK |
+
+### 5.2 Piloto con grupo reducido
+
+- Seleccionar 1 punto de atención con 1 operador de RH
+- Procesar los primeros 50 contratos con el sistema nuevo **en paralelo** al proceso actual
+- Registrar por cada contrato:
+  - Tiempo total de atención
+  - Si fue necesario corregir algún campo manualmente (cuál y por qué)
+  - Si hubo que volver a fotografiar (cuántas veces)
+- Calcular métricas reales del piloto:
+  - Tiempo promedio real vs objetivo (1.5–2 min)
+  - Tasa de corrección manual por campo
+  - Tasa de "necesitó refoto"
+
+### 5.3 Umbrales para pasar a producción
+
+- Tiempo promedio por contrato: < 3 minutos
+- Tasa de corrección manual en cualquier campo: < 10%
+- Tasa de "necesitó refoto": < 15%
+- Ningún crash o error no manejado durante el piloto
+
+### 5.4 Tests de rendimiento
+
+- Tiempo de respuesta del endpoint OCR: objetivo < 3 segundos por imagen
+- Tiempo de generación del PDF: objetivo < 1 segundo
+- Comportamiento con 3-5 peticiones simultáneas (si hay múltiples puntos de atención)
+- Consumo de RAM con el modelo cargado: no debe superar 2 GB
+
+### Entregables de la Fase 5
+- [ ] Reporte del piloto con todas las métricas reales
+- [ ] Lista de bugs encontrados y estado de corrección
+- [ ] Ajustes al modelo o al post-procesamiento si métricas no alcanzan los mínimos
+- [ ] Sistema formalmente aprobado para despliegue general
+
+---
+
+## ✅ FASE 6 — Despliegue y Capacitación
+**Duración estimada:** 1 semana  
+**Objetivo:** Sistema en producción, equipo de RH capacitado, documentación lista.
+
+### 6.1 Despliegue del backend
+
+**Opción recomendada — Standalone con Kestrel como Windows Service:**
+```bash
+# Build de producción (auto-contenido, sin instalar .NET en el servidor)
+dotnet publish -c Release -r win-x64 --self-contained true -o ./publish
+
+# Registrar como servicio de Windows (auto-inicia con el PC)
+sc create DNIContractApi binPath="C:\deploy\DNIContractApi\DNIContractApi.exe"
+sc config DNIContractApi start=auto
+sc start DNIContractApi
+```
+
+**Checklist de despliegue:**
+- [ ] Archivos `.onnx` en la ruta correcta configurada en `appsettings.json`
+- [ ] `appsettings.json` de producción con rutas de producción (no las de dev)
+- [ ] El servicio está configurado para reiniciarse automáticamente
+- [ ] Puerto de la API permitido en el firewall de Windows (si el frontend está en otro dispositivo)
+- [ ] Backup de los archivos `.onnx` en carpeta o disco separado
+
+### 6.2 Despliegue del frontend React
+
+```bash
+npm run build
+# La carpeta /dist es el frontend compilado
+# Opciones para servirlo:
+# A) Servirlo desde el mismo backend como archivos estáticos (configurar en Program.cs)
+# B) Copiarlo a wwwroot de IIS como sitio separado
+```
+
+### 6.3 Capacitación del equipo de RH
+
+La capacitación no debe durar más de 30 minutos. Materiales a preparar:
+
+- **Guía visual de 1 página (impresa):** 3 pasos con capturas de pantalla reales: fotografiar → confirmar → imprimir
+- **Tips para tomar buena foto:** superficie plana, buena luz, sin reflejo, encuadre completo del DNI
+- **Qué hacer si falla la lectura:** cómo re-tomar foto, cómo ingresar manualmente si persiste el problema
+- **Contacto del soporte técnico:** nombre y número de a quién llamar si hay un problema que no pueden resolver
+
+### 6.4 Documentación técnica a entregar a sistemas
+
+- Manual de instalación y despliegue paso a paso
+- Manual de reentrenamiento del modelo (para cuando cambie el diseño del DNI peruano)
+- Guía de troubleshooting de los errores más comunes
+- Diagrama de arquitectura del sistema completo
+
+### Entregables de la Fase 6
+- [ ] Sistema desplegado en producción y funcionando
+- [ ] Guía visual de 1 página para operadores de RH (impresa y disponible en el puesto)
+- [ ] Documentación técnica completa entregada al área de sistemas
+- [ ] Primer día de operación real acompañado por el equipo técnico
+
+---
+
+## 📊 Resumen de fases y tiempos
+
+| Fase | Descripción | Duración estimada |
+|---|---|---|
+| 1 | Diagnóstico y preparación del entorno | 1–2 semanas |
+| 2 | Entrenamiento del modelo OCR | 4–6 semanas |
+| 3 | Desarrollo del Backend API | 3–5 semanas |
+| 4 | Desarrollo del Frontend | 2–3 semanas |
+| 5 | Integración, Piloto y Pruebas | 1–2 semanas |
+| 6 | Despliegue y Capacitación | 1 semana |
+| **TOTAL** | | **12–19 semanas** |
+
+> Las Fases 3 y 4 pueden ejecutarse **en paralelo** una vez que el modelo de la Fase 2 produce resultados preliminares (el backend puede trabajarse con datos mockeados mientras el modelo se afina).
+
+---
+
+## ⚠️ Riesgos técnicos y mitigaciones
+
+| Riesgo | Probabilidad | Impacto | Mitigación |
+|---|---|---|---|
+| Modelo no alcanza 95% de precisión con 200 imágenes | Media | Alto | Augmentación de datos (x5); ajuste de hiperparámetros; considerar TrOCR como alternativa |
+| Exportación a ONNX pierde precisión vs modelo paddle original | Baja | Alto | Verificar métricas del ONNX contra el modelo original; delta debe ser < 1% |
+| Cámara del tablet produce imágenes de baja calidad | Media | Medio | El preprocesamiento compensa en la mayoría de casos; si persiste, evaluar cámara USB de mayor resolución |
+| Rendimiento del modelo ONNX demasiado lento en el hardware disponible | Baja | Medio | ONNX Runtime tiene optimización para CPU; si no alcanza, aplicar quantización INT8 al modelo |
+| DNI de diseño nuevo sin ejemplos en el dataset | Baja (largo plazo) | Medio | Modelo interno = reentrenar sin costo cuando aparezcan nuevos modelos de DNI |
+
+---
+
+## 🔧 Comandos de referencia rápida
+
+```bash
+# === PYTHON - ENTRENAMIENTO ===
+pip install paddleocr paddlepaddle paddle2onnx opencv-python pillow numpy label-studio
+
+# Exportar modelos a ONNX
+paddle2onnx --model_dir ./output/dni_det/best_accuracy \
+  --model_filename inference.pdmodel --params_filename inference.pdiparams \
+  --save_file ./models/dni_det.onnx --opset_version 11
+
+# Verificar ONNX
+python -c "import onnx; onnx.checker.check_model('models/dni_det.onnx'); print('OK')"
+
+# === .NET - BACKEND ===
+dotnet new webapi -n DNIContractApi --framework net8.0
+dotnet add package Microsoft.ML.OnnxRuntime
+dotnet add package QuestPDF
+dotnet add package SixLabors.ImageSharp
+dotnet publish -c Release -r win-x64 --self-contained true -o ./publish
+
+# Windows Service
+sc create DNIContractApi binPath="C:\deploy\DNIContractApi.exe"
+sc config DNIContractApi start=auto
+sc start DNIContractApi
+
+# === REACT - FRONTEND ===
+npm create vite@latest dni-contract-frontend -- --template react
+npm install axios react-webcam
+npm run build
+```
+
+---
+
+## 📝 Notas importantes
+
+- **Protección de datos:** El sistema procesa todo localmente, sin enviar imágenes a internet. Igualmente, consultar con el área legal el cumplimiento de la **Ley N° 29733 (Protección de Datos Personales del Perú)** antes de la puesta en marcha.
+- **Firma y huella:** Se mantienen en formato **físico** sobre el contrato impreso. No digitalizar este paso sin validación legal previa (riesgo ante fiscalización SUNAFIL).
+- **Modelos ONNX:** Los archivos `.onnx` no van al repositorio Git por su tamaño. Distribuirlos por carpeta compartida de red interna o USB.
+- **Reentrenamiento:** Si el diseño del DNI peruano cambia, el proceso de reentrenamiento está completamente documentado en la Fase 2 de este plan. Sin dependencia de proveedores externos.
+- **Escalabilidad:** El mismo sistema puede adaptarse a otros documentos (carné de extranjería, brevete) o a otros flujos del área de RH en el futuro.
+ENDOFFILE
+echo "Archivo creado OK"

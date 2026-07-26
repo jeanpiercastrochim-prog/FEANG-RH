@@ -1,0 +1,317 @@
+.chavin-login-wrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: #030d22;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.chavin-login-scaler {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  background-size: 100% 100%;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.chavin-dark-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(15, 23, 42, 0.5);
+  pointer-events: none;
+}
+
+.chavin-theme-toggle {
+  position: absolute;
+  top: 4%;
+  right: 5%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 20;
+}
+
+.toggle-switch {
+  width: 40px;
+  height: 22px;
+  background: rgba(255,255,255,0.3);
+  border-radius: 11px;
+  position: relative;
+  transition: 0.3s;
+}
+
+.toggle-switch.active {
+  background: #3b82f6;
+}
+
+.toggle-knob {
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: 0.3s;
+}
+
+.toggle-switch.active .toggle-knob {
+  left: 20px;
+}
+
+.chavin-form-box {
+  position: absolute;
+  top: 12%; 
+  right: calc(4% + 10px);
+  width: 38%;
+  height: 76%;
+  border-radius: 32px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: transparent;
+  transition: all 0.3s ease;
+  z-index: 10;
+}
+
+.dark .chavin-form-box {
+  background: #0f172a;
+  box-shadow: 0 10px 50px rgba(0,0,0,0.8);
+}
+
+.chavin-form-inner {
+  width: 100%;
+  max-width: 360px;
+  padding: 40px 30px;
+  background-color: transparent;
+}
+
+.dark .chavin-form-inner {
+  background-color: transparent;
+}
+
+.chavin-form-header {
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.chavin-form-logo {
+  max-width: 140px;
+  margin-bottom: 24px;
+  mix-blend-mode: multiply;
+}
+.dark .chavin-form-logo {
+  mix-blend-mode: normal;
+  filter: brightness(0) invert(1);
+}
+
+.chavin-form-header h2 {
+  font-size: 24px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 8px 0;
+}
+.dark .chavin-form-header h2 {
+  color: #fff;
+}
+
+.chavin-form-header p {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0 0 32px 0;
+}
+.dark .chavin-form-header p {
+  color: #94a3b8;
+}
+
+.chavin-input-group {
+  margin-bottom: 20px;
+}
+.chavin-input-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 8px;
+}
+.dark .chavin-input-group label {
+  color: #e2e8f0;
+}
+
+.chavin-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.chavin-input-icon {
+  position: absolute;
+  left: 14px;
+  color: #94a3b8;
+}
+
+.chavin-input-wrapper input {
+  width: 100%;
+  padding: 12px 16px 12px 42px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  font-size: 14px;
+  color: #0f172a;
+  outline: none;
+  transition: all 0.2s;
+  background: #f8fafc;
+}
+.chavin-input-wrapper input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+.dark .chavin-input-wrapper input {
+  background: #1e293b;
+  border-color: #334155;
+  color: #fff;
+}
+.dark .chavin-input-wrapper input:focus {
+  border-color: #3b82f6;
+}
+
+.chavin-eye-btn {
+  position: absolute;
+  right: 14px;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+}
+.chavin-eye-btn:hover {
+  color: #3b82f6;
+}
+
+.chavin-forgot-pass {
+  text-align: right;
+  margin-top: 8px;
+  margin-bottom: 24px;
+}
+.chavin-forgot-pass a {
+  font-size: 13px;
+  font-weight: 600;
+  color: #3b82f6;
+  text-decoration: none;
+}
+.chavin-forgot-pass a:hover {
+  text-decoration: underline;
+}
+
+.chavin-submit-btn {
+  width: 100%;
+  padding: 14px;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  transition: 0.2s;
+  margin-top: 10px;
+}
+.chavin-submit-btn:hover {
+  background: #1d4ed8;
+}
+
+.chavin-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 16px 0;
+  color: #94a3b8;
+  font-size: 12px;
+}
+.chavin-divider::before,
+.chavin-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid #e2e8f0;
+}
+.dark .chavin-divider::before,
+.dark .chavin-divider::after {
+  border-bottom: 1px solid #334155;
+}
+.chavin-divider span {
+  padding: 0 12px;
+}
+
+.chavin-microsoft-btn {
+  width: 100%;
+  padding: 10px;
+  background: #fff;
+  color: #0f172a;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  transition: 0.2s;
+}
+.chavin-microsoft-btn:hover {
+  background: #f8fafc;
+}
+.dark .chavin-microsoft-btn {
+  background: #1e293b;
+  border-color: #334155;
+  color: #fff;
+}
+.dark .chavin-microsoft-btn:hover {
+  background: #0f172a;
+}
+
+.chavin-signup {
+  text-align: center;
+  margin-top: 16px;
+  font-size: 12px;
+  color: #64748b;
+}
+.dark .chavin-signup {
+  color: #94a3b8;
+}
+.chavin-signup a {
+  font-weight: 700;
+  color: #3b82f6;
+  text-decoration: none;
+}
+.chavin-signup a:hover {
+  text-decoration: underline;
+}
+
+.chavin-error-msg {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  text-align: center;
+}

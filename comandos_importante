@@ -1,0 +1,98 @@
+# 🚀 COMANDOS Y ENLACES DE LOS SERVICIOS
+
+## 1. BACKEND (API)
+- **Ruta:** `c:\proyecto\PRIME_RH\src\Api`
+- **Comando:** 
+  ```bash
+  cd c:\proyecto\PRIME_RH\src\Api
+  dotnet run
+  ```
+
+## 2. FRONTEND (WEB) - Dashboards (Transportista y RH)
+- **Ruta:** `c:\proyecto\PRIME_RH\src\Frontend`
+- **Comando:** 
+  ```bash
+  cd c:\proyecto\PRIME_RH\src\Frontend
+  npm run dev
+  ```
+- **Enlace Local:** http://localhost:5175/
+
+## 3. APP MÓVIL - Ingreso (Transportista y RH)
+- **Ruta:** `c:\proyecto\PRIME_RH\src\ChavinMobile`
+- **Comando:** 
+  ```bash
+  cd c:\proyecto\PRIME_RH\src\ChavinMobile
+  npm start
+  ```
+- **Enlace Local:** http://localhost:8081/
+
+---
+
+# 🗄️ COMANDOS ADICIONALES (BASE DE DATOS Y GIT)
+
+- **Base de Datos (Ejecutar script):**
+  ```bash
+  sqlcmd -S localhost -E -i "database_schema.sql"
+  ```
+
+- **Git (Guardar cambios rápidos):**
+  ```bash
+  git add .
+  git commit -m "Mensaje de tu cambio"
+  git push
+  ```
+
+---
+
+# 🔐 CUENTAS DE ACCESO
+
+## 🚚 Cuentas para Transportista (Web y App)
+
+### 1. Perfil Transportista
+- **DNI:** `11111111`
+- **Clave:** `trans123`
+
+
+
+👤 Carlos (DNI: 33333333) ➔ 🚚 Maneja CHV-014
+contraseña : trans123
+
+👤 Ana (DNI: 44444444) ➔ 🚚 Maneja CHV-022
+contraseña : trans123
+
+👤 Luis (DNI: 55555555) ➔ 🚚 Maneja CHV-089
+contraseña : trans123
+
+### 2. Perfil Almacenero
+- **DNI:** `22222222`
+- **Clave:** `almacen123`
+- **Rol:** `Almacenero`
+
+
+
+
+## 👥 Cuentas para Recursos Humanos / RH (Web y App)
+
+### 1. Perfil Personal Administrativo
+- **Usuario:** Jeanpier
+- **DNI:** `76938037`
+- **Clave:** `jeanpier55`
+
+### 2. Perfil Personal de Campo
+- **Usuario:** Flavio
+- **DNI:** `22222222`
+- **Clave:** `flavio123`
+
+## 📦 Otras Cuentas (Almacén)
+
+### 1. Perfil Almacén TI
+- **DNI:** `88888888`
+- **Clave:** `almacen123`
+
+### 2. Perfil Almacén General
+- **DNI:** *(Pendiente)*
+- **Clave:** *(Pendiente)*
+
+
+
+
