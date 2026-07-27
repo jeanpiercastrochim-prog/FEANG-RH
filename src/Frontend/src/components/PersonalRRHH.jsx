@@ -167,6 +167,26 @@ export default function PersonalRRHH() {
   const [detectedEmployees, setDetectedEmployees] = useState([]);
   const [isProcessingOcr, setIsProcessingOcr] = useState(false);
   const [ocrProgress, setOcrProgress] = useState({ current: 0, total: 0 });
+  const [loadingMessageIdx, setLoadingMessageIdx] = useState(0);
+
+  useEffect(() => {
+    let interval;
+    if (isProcessingOcr) {
+      interval = setInterval(() => {
+        setLoadingMessageIdx(prev => (prev + 1) % 4);
+      }, 2500);
+    } else {
+      setLoadingMessageIdx(0);
+    }
+    return () => clearInterval(interval);
+  }, [isProcessingOcr]);
+
+  const loadingMessages = [
+    "Extrayendo Información...",
+    "Analizando los DNI...",
+    "Procesando con IA...",
+    "Capturando datos exactos..."
+  ];
   const [zoomedImage, setZoomedImage] = useState(null);
 
   // Contract Signature Modal
@@ -425,9 +445,11 @@ export default function PersonalRRHH() {
   const swapSmartPair = (index) => {
     setUploadedPairs(prev => {
       const newPairs = [...prev];
-      const temp = newPairs[index].front;
-      newPairs[index].front = newPairs[index].back;
-      newPairs[index].back = temp;
+      const pair = { ...newPairs[index] };
+      const temp = pair.front;
+      pair.front = pair.back;
+      pair.back = temp;
+      newPairs[index] = pair;
       return newPairs;
     });
   };
@@ -437,9 +459,13 @@ export default function PersonalRRHH() {
       const newPairs = [...prev];
       const targetIndex = index + direction;
       if (targetIndex >= 0 && targetIndex < newPairs.length) {
-        const temp = newPairs[index][side];
-        newPairs[index][side] = newPairs[targetIndex][side];
-        newPairs[targetIndex][side] = temp;
+        const pairA = { ...newPairs[index] };
+        const pairB = { ...newPairs[targetIndex] };
+        const temp = pairA[side];
+        pairA[side] = pairB[side];
+        pairB[side] = temp;
+        newPairs[index] = pairA;
+        newPairs[targetIndex] = pairB;
       }
       return newPairs;
     });
@@ -1378,7 +1404,9 @@ export default function PersonalRRHH() {
                   <p style={{ color: '#64748b', fontSize: '13px', margin: 0 }}>Toma las fotos en orden (Anverso, Reverso, Anverso...) y la IA las emparejará solas.</p>
                 </div>
               </div>
-              <button onClick={() => setShowSmartUpload(false)} style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(255,255,255,0.5)', border: 'none', color: '#166534', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>✕</button>
+              <button onClick={() => setShowSmartUpload(false)} style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(255,255,255,0.5)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s', fontSize: '18px' }} onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.8)'} onMouseOut={e => e.currentTarget.style.background = 'rgba(255,255,255,0.5)'}>
+                ❌
+              </button>
             </div>
 
             <div style={{ padding: '32px 40px', overflowY: 'auto', flex: 1, background: '#f8fafc' }}>
@@ -1409,8 +1437,8 @@ export default function PersonalRRHH() {
                             </div>
                             <span style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>Par {idx + 1}</span>
                           </div>
-                          <button onClick={() => removePair(pair.id)} style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#fee2e2', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }}>
-                            <Trash2 size={16} />
+                          <button onClick={() => removePair(pair.id)} style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#fee2e2', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s', fontSize: '16px' }}>
+                            🗑️
                           </button>
                         </div>
                         
@@ -1430,8 +1458,8 @@ export default function PersonalRRHH() {
                           </div>
 
                           {/* Swap Button */}
-                          <button onClick={() => swapSmartPair(idx)} style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#eff6ff', border: '1px solid #bfdbfe', color: '#2563eb', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s', flexShrink: 0 }} title="Invertir Anverso y Reverso">
-                            <RefreshCw size={18} />
+                          <button onClick={() => swapSmartPair(idx)} style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#eff6ff', border: '1px solid #bfdbfe', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s', flexShrink: 0, fontSize: '20px' }} title="Invertir Anverso y Reverso">
+                            🔄
                           </button>
 
                           {/* Reverso */}
@@ -1657,8 +1685,8 @@ export default function PersonalRRHH() {
           onClick={() => setZoomedImage(null)}
           style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999999, backdropFilter: 'blur(10px)', cursor: 'zoom-out' }}
         >
-          <button onClick={() => setZoomedImage(null)} style={{ position: 'absolute', top: '24px', right: '24px', width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}>
-            <X size={28} />
+          <button onClick={() => setZoomedImage(null)} style={{ position: 'absolute', top: '24px', right: '24px', width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s', fontSize: '24px' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}>
+            ❌
           </button>
           <img src={zoomedImage} alt="Zoom DNI" style={{ maxWidth: '90%', maxHeight: '90vh', objectFit: 'contain', borderRadius: '16px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', animation: 'fadeIn 0.2s ease-out' }} />
         </div>,
@@ -1679,16 +1707,22 @@ export default function PersonalRRHH() {
             </div>
 
             <h3 style={{ fontSize: '24px', fontWeight: '800', color: '#0f172a', margin: '0 0 12px 0', textAlign: 'center', letterSpacing: '-0.5px' }}>
-              Extrayendo Información...
+              {loadingMessages[loadingMessageIdx] || "Extrayendo Información..."}
             </h3>
             
             <p style={{ fontSize: '15px', color: '#64748b', margin: '0 0 24px 0', textAlign: 'center', maxWidth: '320px', lineHeight: '1.5' }}>
-              Nuestra IA está analizando los DNI para capturar los datos con máxima precisión.
+              Nuestra IA está analizando los DNI para capturar los datos con máxima precisión. No cierres esta ventana.
             </p>
 
             <div style={{ width: '100%', height: '6px', background: '#f1f5f9', borderRadius: '100px', overflow: 'hidden' }}>
-              <div style={{ width: '40%', height: '100%', background: 'linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%)', borderRadius: '100px', animation: 'shimmer 2s infinite linear, moveRight 2s infinite ease-in-out alternate' }}></div>
+              <div style={{ width: `${ocrProgress.total > 0 ? (ocrProgress.current / ocrProgress.total) * 100 : 40}%`, height: '100%', background: 'linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%)', borderRadius: '100px', animation: ocrProgress.total > 0 ? 'shimmer 2s infinite linear' : 'shimmer 2s infinite linear, moveRight 2s infinite ease-in-out alternate', transition: 'width 0.4s ease-out' }}></div>
             </div>
+
+            {ocrProgress.total > 0 && (
+              <p style={{ fontSize: '14px', fontWeight: '700', color: '#3b82f6', marginTop: '16px', textAlign: 'center' }}>
+                {ocrProgress.current} documento{ocrProgress.current !== 1 ? 's' : ''} analizado{ocrProgress.current !== 1 ? 's' : ''} de {ocrProgress.total}...
+              </p>
+            )}
             
             <style>
               {`

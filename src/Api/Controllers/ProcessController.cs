@@ -119,7 +119,7 @@ namespace DNIContractApi.Controllers
             var processes = await _context.EmployeeContracts
                 .Include(ec => ec.Employee)
                     .ThenInclude(e => e.User)
-                .Where(ec => ec.Status == "Pendiente")
+                .Where(ec => ec.Status == "Pendiente" && !string.IsNullOrEmpty(ec.Employee.SignatureImagePath))
                 .OrderByDescending(ec => ec.CreatedAt)
                 .Select(ec => new {
                     Id = ec.Id,
@@ -229,6 +229,7 @@ namespace DNIContractApi.Controllers
             public string? ContactoEmergencia { get; set; }
             public string? Parentesco { get; set; }
             public string? TelefonoEmergencia { get; set; }
+            public int? AFPId { get; set; }
             public string? SignatureBase64 { get; set; }
             public bool IsBiometricValidated { get; set; }
         }
@@ -265,6 +266,7 @@ namespace DNIContractApi.Controllers
             employee.ContactoEmergencia = req.ContactoEmergencia;
             employee.Parentesco = req.Parentesco;
             employee.TelefonoEmergencia = req.TelefonoEmergencia;
+            if (req.AFPId.HasValue) employee.AFPId = req.AFPId.Value;
             
             await Services.DbHelper.ResolveRelationsAsync(_context, employee);
             await _context.SaveChangesAsync();
@@ -273,6 +275,10 @@ namespace DNIContractApi.Controllers
             {
                 var base64Data = req.SignatureBase64.Split(',').Last();
                 var signatureBytes = Convert.FromBase64String(base64Data);
+                
+                var imageService = new DNIContractApi.Services.ImagePreprocessingService();
+                signatureBytes = imageService.ProcessSignatureImage(signatureBytes);
+                
                 var uploadsFolder = Path.Combine(_env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot"), "uploads");
                 if (!Directory.Exists(uploadsFolder)) Directory.CreateDirectory(uploadsFolder);
                 var signatureFileName = $"{Guid.NewGuid()}_signature.png";

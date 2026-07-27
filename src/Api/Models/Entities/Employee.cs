@@ -20,10 +20,12 @@ namespace DNIContractApi.Models.Entities
         public DateTime FechaNacimiento { get; set; } = DateTime.UtcNow.AddYears(-25);
 
         public int GeneroId { get; set; }
+        [DatabaseGenerated(DatabaseGeneratedOption.Computed)]
         public string GeneroDefinicionCodigo { get; set; } = "GENERO";
         public DefinicionDetalle? Genero { get; set; }
 
         public int EstadoCivilId { get; set; }
+        [DatabaseGenerated(DatabaseGeneratedOption.Computed)]
         public string EstadoCivilDefinicionCodigo { get; set; } = "ESTADO_CIVIL";
         public DefinicionDetalle? EstadoCivilDetalle { get; set; }
 
@@ -42,6 +44,7 @@ namespace DNIContractApi.Models.Entities
         public decimal BaseSalary { get; set; }
 
         public int EstadoEmpleadoId { get; set; }
+        [DatabaseGenerated(DatabaseGeneratedOption.Computed)]
         public string EstadoEmpleadoDefinicionCodigo { get; set; } = "ESTADO_EMPLEADO";
         public DefinicionDetalle? EstadoEmpleado { get; set; }
 
@@ -49,14 +52,17 @@ namespace DNIContractApi.Models.Entities
         public DateTime? FechaCese { get; set; }
 
         public int TipoContratoId { get; set; }
+        [DatabaseGenerated(DatabaseGeneratedOption.Computed)]
         public string TipoContratoDefinicionCodigo { get; set; } = "TIPO_CONTRATO";
         public DefinicionDetalle? TipoContrato { get; set; }
 
         public int? BancoId { get; set; }
+        [DatabaseGenerated(DatabaseGeneratedOption.Computed)]
         public string BancoDefinicionCodigo { get; set; } = "BANCO";
         public DefinicionDetalle? Banco { get; set; }
 
         public int? TipoCuentaBancariaId { get; set; }
+        [DatabaseGenerated(DatabaseGeneratedOption.Computed)]
         public string TipoCuentaBancariaDefinicionCodigo { get; set; } = "TIPO_CUENTA_BANCARIA";
         public DefinicionDetalle? TipoCuentaBancaria { get; set; }
 
@@ -64,6 +70,7 @@ namespace DNIContractApi.Models.Entities
         public string? CCI { get; set; }
 
         public int? AFPId { get; set; }
+        [DatabaseGenerated(DatabaseGeneratedOption.Computed)]
         public string AFPDefinicionCodigo { get; set; } = "AFP";
         public DefinicionDetalle? AFP { get; set; }
 

@@ -447,6 +447,12 @@ namespace DNIContractApi.Controllers
         {
             public string SignatureBase64 { get; set; } = string.Empty;
             public bool IsBiometricValidated { get; set; }
+            public string? Telefono { get; set; }
+            public string? CorreoPersonal { get; set; }
+            public string? ContactoEmergencia { get; set; }
+            public string? Parentesco { get; set; }
+            public string? TelefonoEmergencia { get; set; }
+            public int? AFPId { get; set; }
         }
 
         [HttpPost("{id}/signature")]
@@ -454,6 +460,13 @@ namespace DNIContractApi.Controllers
         {
             var emp = await _context.Employees.FindAsync(id);
             if (emp == null) return NotFound("Empleado no encontrado.");
+
+            emp.Telefono = req.Telefono;
+            emp.CorreoPersonal = req.CorreoPersonal;
+            emp.ContactoEmergencia = req.ContactoEmergencia;
+            emp.Parentesco = req.Parentesco;
+            emp.TelefonoEmergencia = req.TelefonoEmergencia;
+            if (req.AFPId.HasValue) emp.AFPId = req.AFPId.Value;
 
             if (string.IsNullOrEmpty(req.SignatureBase64))
             {
@@ -463,6 +476,9 @@ namespace DNIContractApi.Controllers
             {
                 var base64Data = req.SignatureBase64.Split(',').Last();
                 var signatureBytes = Convert.FromBase64String(base64Data);
+                
+                var imageService = new DNIContractApi.Services.ImagePreprocessingService();
+                signatureBytes = imageService.ProcessSignatureImage(signatureBytes);
                 
                 // Get correct webroot path
                 var env = HttpContext.RequestServices.GetService<IWebHostEnvironment>();

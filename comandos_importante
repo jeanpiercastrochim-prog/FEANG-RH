@@ -5,27 +5,27 @@
 ================================================================================
 
 ### 1. BACKEND (API C#)
-- **Ruta:** `c:\proyecto\PRIME_RH\src\Api`
+- **Ruta:** `c:\Users\Lenovo\Desktop\solucion_RH\proyecto\src\Api`
 - **Comandos:** 
   ```bash
-  cd c:\proyecto\PRIME_RH\src\Api
+  cd c:\Users\Lenovo\Desktop\solucion_RH\proyecto\src\Api
   dotnet run
   ```
 
 ### 2. FRONTEND (WEB)
-- **Ruta:** `c:\proyecto\PRIME_RH\src\Frontend`
+- **Ruta:** `c:\Users\Lenovo\Desktop\solucion_RH\proyecto\src\Frontend`
 - **Comandos:** 
   ```bash
-  cd c:\proyecto\PRIME_RH\src\Frontend
+  cd c:\Users\Lenovo\Desktop\solucion_RH\proyecto\src\Frontend
   npm run dev
   ```
 - **Enlace Local:** http://localhost:5175/
 
 ### 3. APLICACIÓN MÓVIL
-- **Ruta:** `c:\proyecto\PRIME_RH\src\ChavinMobile`
+- **Ruta:** `c:\Users\Lenovo\Desktop\solucion_RH\proyecto\src\ChavinMobile`
 - **Comandos:** 
   ```bash
-  cd c:\proyecto\PRIME_RH\src\ChavinMobile
+  cd c:\Users\Lenovo\Desktop\solucion_RH\proyecto\src\ChavinMobile
   npm start
   ```
 - **Enlace Local:** http://localhost:8081/

@@ -8,8 +8,8 @@ import * as ImagePicker from 'expo-image-picker';
 import axios from 'axios';
 
 const { width, height } = Dimensions.get('window');
-const API_URL = Platform.OS === 'web' ? 'http://localhost:5050/api' : 'http://127.0.0.1:5050/api';
-const BASE_URL = Platform.OS === 'web' ? 'http://localhost:5050' : 'http://127.0.0.1:5050';
+const API_URL = Platform.OS === 'web' ? 'http://localhost:5051/api' : 'http://10.0.2.2:5051/api';
+const BASE_URL = Platform.OS === 'web' ? 'http://localhost:5051' : 'http://10.0.2.2:5051';
 
 export default function CarnetScreen({ route, navigation }: any) {
   const employee = route?.params?.employee;

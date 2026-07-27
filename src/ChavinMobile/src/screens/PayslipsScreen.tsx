@@ -9,7 +9,7 @@ import {
 } from 'lucide-react-native';
 
 const { width } = Dimensions.get('window');
-const API_URL = Platform.OS === 'web' ? 'http://localhost:5050/api' : 'http://127.0.0.1:5050/api';
+const API_URL = Platform.OS === 'web' ? 'http://localhost:5051/api' : 'http://10.0.2.2:5051/api';
 // Base URL para archivos estáticos (quitando el /api del final)
 const BASE_URL = API_URL.replace('/api', '');
 

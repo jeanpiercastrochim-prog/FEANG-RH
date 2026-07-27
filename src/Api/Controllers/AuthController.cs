@@ -155,19 +155,18 @@ namespace DNIContractApi.Controllers
             }
 
             // Seed Almacenero
-            var almacenDni = "22222222";
-            var almacenUser = await _context.Users.FirstOrDefaultAsync(u => u.Dni == almacenDni);
-            if (almacenUser == null)
+            var almacenDnis = new[] { "66666666", "88888888" };
+            foreach (var a in almacenDnis)
             {
-                almacenUser = new Models.Entities.User { Dni = almacenDni, Email = "almacen@chavin.com", Rol = "Almacenero" };
-                Services.DbHelper.CreatePasswordHash("almacen123", out var hash, out var salt);
-                almacenUser.PasswordHash = hash;
-                almacenUser.PasswordSalt = salt;
-                _context.Users.Add(almacenUser);
-            }
-            else
-            {
+                var almacenUser = await _context.Users.FirstOrDefaultAsync(u => u.Dni == a);
+                if (almacenUser == null)
+                {
+                    almacenUser = new Models.Entities.User { Dni = a, Email = $"almacen{a}@chavin.com", Rol = "Almacenero" };
+                    _context.Users.Add(almacenUser);
+                }
+
                 almacenUser.Rol = "Almacenero";
+                almacenUser.IsActive = true;
                 Services.DbHelper.CreatePasswordHash("almacen123", out var hash, out var salt);
                 almacenUser.PasswordHash = hash;
                 almacenUser.PasswordSalt = salt;
@@ -175,7 +174,7 @@ namespace DNIContractApi.Controllers
 
             await _context.SaveChangesAsync();
 
-            return Ok(new { success = true, message = "Usuarios Admin y Transportista creados correctamente. Passwords: admin123 / trans123" });
+            return Ok(new { success = true, message = "Usuarios Transportista y Almacen creados correctamente." });
         }
     }
 }

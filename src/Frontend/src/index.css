@@ -2153,13 +2153,19 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 24px;
+  background: #1e40af; /* Blue background */
+  padding: 16px 24px;
+  border-radius: 24px 24px 0 0;
+  margin: -24px -24px 24px -24px; /* Counteract padding of glass-panel */
 }
 .panel-header h3 {
   font-size: 18px;
   font-weight: 700;
-  color: #1e293b;
+  color: #ffffff;
   margin: 0;
+}
+.panel-header svg {
+  color: #ffffff !important;
 }
 
 .dni-showcase {
