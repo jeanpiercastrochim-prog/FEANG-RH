@@ -118,10 +118,15 @@ export default function SignatureScreen({ route, navigation }: any) {
       });
       
       setShowSuccess(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      if (Platform.OS === 'web') window.alert('Hubo un problema enviando los datos.');
-      else Alert.alert('Error', 'Hubo un problema enviando los datos.');
+      let errorMsg = 'Hubo un problema enviando los datos.';
+      if (error.response?.data?.message) {
+        errorMsg = error.response.data.message;
+      }
+      console.error("Detalle del error:", error.response?.data || error.message);
+      if (Platform.OS === 'web') window.alert('Error del Servidor: ' + errorMsg);
+      else Alert.alert('Error del Servidor', errorMsg);
     } finally {
       setIsSubmitting(false);
     }

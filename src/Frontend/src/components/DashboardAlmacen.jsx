@@ -1832,7 +1832,16 @@ function ViewContenedores() {
   );
 }
 
-function ViewRecepcion({ user, globalBoxConfigs, setGlobalBoxConfigs, globalRackConfigs, showModal }) {
+function ViewRecepcion({ user, globalBoxConfigs, setGlobalBoxConfigs, globalRackConfigs, showModal, blackLogoUrl }) {
+  const [imagenBase64, setImagenBase64] = useState(null);
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => setImagenBase64(reader.result);
+      reader.readAsDataURL(file);
+    }
+  };
   const [step, setStep] = useState(1);
   const [racks, setRacks] = useState([]);
 
@@ -2523,3 +2532,155 @@ function CameraControls({ rotationZ, setRotationZ, rotationX, setRotationX, zoom
     </div>
   );
 }
+
+
+export const generateHojaRecepcionPDF = (data, user, globalRackConfigs) => {
+  if (!data) return;
+  const doc = new jsPDF();
+  
+  doc.setFillColor(248, 250, 252);
+  doc.rect(0, 0, 210, 45, 'F');
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.5);
+  doc.line(0, 45, 210, 45);
+
+  const logoImg = document.getElementById('logo-empresa-hidden');
+  if (logoImg) {
+    doc.addImage(logoImg, 'PNG', 20, 7, 50, 30);
+  }
+
+  doc.setTextColor(30, 41, 59);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(22);
+  doc.text("HOJA DE RECEPCIÓN", 115, 20, null, null, "center");
+  
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100, 116, 139);
+  const d = new Date();
+  doc.text(`Fecha: ${d.toLocaleDateString()} - Documento: REC-${d.getTime().toString().slice(-6)}`, 115, 28, null, null, "center");
+  doc.text(`Estado: INGRESADO - Sistema de Gestión`, 115, 34, null, null, "center");
+
+  doc.setFillColor(255, 255, 255);
+  doc.roundedRect(20, 55, 170, 60, 3, 3, 'FD');
+  
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(15, 23, 42);
+  doc.text("Información del Producto", 25, 65);
+  doc.setDrawColor(226, 232, 240);
+  doc.line(25, 68, 185, 68);
+
+  doc.setFontSize(10);
+  doc.setTextColor(71, 85, 105);
+  doc.setFont("helvetica", "bold");
+  doc.text("SKU / Código:", 25, 78);
+  doc.text("Descripción:", 25, 88);
+  doc.text("Cantidad:", 25, 98);
+  doc.text("Proveedor:", 25, 108);
+
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(15, 23, 42);
+  doc.text(data.sku, 60, 78);
+  doc.text(data.nombre, 60, 88);
+  
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(37, 99, 235);
+  doc.text(data.cantidad.toString(), 60, 98);
+
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(15, 23, 42);
+  doc.text(data.proveedor || "No especificado", 60, 108);
+
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(20, 120, 170, 45, 3, 3, 'FD');
+
+  doc.setFontSize(12);
+  doc.setTextColor(15, 23, 42);
+  doc.setFont("helvetica", "bold");
+  doc.text("UBICACIÓN ASIGNADA EN ALMACÉN", 25, 130);
+  doc.setDrawColor(226, 232, 240);
+  doc.line(25, 133, 185, 133);
+
+  doc.setFontSize(10);
+  doc.setTextColor(71, 85, 105);
+  doc.setFont("helvetica", "bold");
+  const rackName = globalRackConfigs?.[data.rack]?.text || `Rack ${data.rack}`;
+  doc.text("Rack:", 25, 143);
+  doc.text("Caja Exacta:", 25, 153);
+  doc.text("Registrado por:", 110, 143);
+  doc.text("Hora Ingreso:", 110, 153);
+
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(15, 23, 42);
+  doc.text(rackName, 55, 143);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(37, 99, 235);
+  doc.text(data.caja, 55, 153);
+  
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(15, 23, 42);
+  doc.text(user?.name || 'Operador', 140, 143);
+  doc.text(d.toLocaleTimeString(), 140, 153);
+
+  doc.setFontSize(9);
+  doc.setTextColor(148, 163, 184);
+  doc.text("Documento generado automáticamente por Sistema de Gestión de RRHH - DNI Contract", 105, 280, null, null, "center");
+
+  doc.save(`recepcion_${data.sku}_${d.getTime()}.pdf`);
+};
+
+export const generateEtiquetaQRPDF = (data) => {
+  if (!data) return;
+  const doc = new jsPDF({
+    orientation: 'landscape',
+    unit: 'mm',
+    format: [100, 60]
+  });
+
+  doc.setDrawColor(15, 23, 42);
+  doc.setLineWidth(1.5);
+  doc.rect(2, 2, 96, 56);
+
+  doc.setFillColor(15, 23, 42);
+  doc.rect(2, 2, 96, 12, 'F');
+  
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.text("ETIQUETA DE ALMACÉN", 50, 10, null, null, "center");
+
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(10);
+  doc.text(`SKU: ${data.sku}`, 5, 22);
+  
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  let prodName = data.nombre;
+  if (prodName.length > 30) prodName = prodName.substring(0, 27) + "...";
+  doc.text(prodName, 5, 28);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(14);
+  doc.setTextColor(37, 99, 235);
+  doc.text(`CANTIDAD: ${data.cantidad}`, 5, 38);
+
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.text(`CAJA: ${data.caja}`, 5, 46);
+  doc.text(`RACK: ${data.rack}`, 5, 52);
+
+  const qrCanvas = document.getElementById('recepcion-qr');
+  if (qrCanvas) {
+    const qrDataUrl = qrCanvas.toDataURL('image/png');
+    doc.addImage(qrDataUrl, 'PNG', 65, 20, 30, 30);
+  }
+
+  doc.setFontSize(6);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100, 100, 100);
+  doc.text("DNI Contract - RRHH", 95, 56, null, null, "right");
+
+  doc.save(`etiqueta_qr_${data.sku}.pdf`);
+};

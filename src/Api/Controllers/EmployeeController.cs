@@ -474,22 +474,27 @@ namespace DNIContractApi.Controllers
             }
             else
             {
-                var base64Data = req.SignatureBase64.Split(',').Last();
-                var signatureBytes = Convert.FromBase64String(base64Data);
-                
-                var imageService = new DNIContractApi.Services.ImagePreprocessingService();
-                signatureBytes = imageService.ProcessSignatureImage(signatureBytes);
-                
-                // Get correct webroot path
-                var env = HttpContext.RequestServices.GetService<IWebHostEnvironment>();
-                var uploadsFolder = Path.Combine(env?.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot"), "uploads");
-                
-                if (!Directory.Exists(uploadsFolder)) Directory.CreateDirectory(uploadsFolder);
-                var signatureFileName = $"{Guid.NewGuid()}_signature.png";
-                var signaturePath = Path.Combine(uploadsFolder, signatureFileName);
-                
-                await System.IO.File.WriteAllBytesAsync(signaturePath, signatureBytes);
-                emp.SignatureImagePath = $"/uploads/{signatureFileName}";
+                try
+                {
+                    var base64Data = req.SignatureBase64.Split(',').Last();
+                    var signatureBytes = Convert.FromBase64String(base64Data);
+                    var imageService = new DNIContractApi.Services.ImagePreprocessingService();
+                    signatureBytes = imageService.ProcessSignatureImage(signatureBytes);
+                    
+                    var env = HttpContext.RequestServices.GetService<IWebHostEnvironment>();
+                    var uploadsFolder = Path.Combine(env?.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot"), "uploads");
+                    if (!Directory.Exists(uploadsFolder)) Directory.CreateDirectory(uploadsFolder);
+                    
+                    var signatureFileName = $"{Guid.NewGuid()}_signature.png";
+                    var signaturePath = Path.Combine(uploadsFolder, signatureFileName);
+                    await System.IO.File.WriteAllBytesAsync(signaturePath, signatureBytes);
+                    
+                    emp.SignatureImagePath = $"/uploads/{signatureFileName}";
+                }
+                catch (Exception ex)
+                {
+                    return StatusCode(500, new { message = $"Error en el servidor: {ex.Message}", stack = ex.StackTrace });
+                }
             }
             
             if (req.IsBiometricValidated) {

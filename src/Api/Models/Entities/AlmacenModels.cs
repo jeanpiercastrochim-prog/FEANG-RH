@@ -55,6 +55,9 @@ namespace DNIContractApi.Models.Entities
         public int StockMinimo { get; set; } = 5;
         
         public bool ControlaVencimiento { get; set; } = false;
+        
+        [StringLength(500)]
+        public string? ImagenUrl { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }

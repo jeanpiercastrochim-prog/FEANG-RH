@@ -68,6 +68,7 @@ namespace DNIContractApi.Controllers
                 .Select(i => new {
                     producto = i.Producto.Nombre,
                     codigoProducto = i.Producto.Codigo,
+                    imagenUrl = i.Producto.ImagenUrl,
                     cantidad = i.CantidadDisponible,
                     unidad = i.Producto.UnidadMedida,
                     lote = i.Lote,
@@ -89,6 +90,27 @@ namespace DNIContractApi.Controllers
         {
             var productos = await _context.AlmacenProductos.ToListAsync();
             return Ok(productos);
+        }
+
+        // GET: api/almacen/inventario
+        [HttpGet("inventario")]
+        public async Task<IActionResult> GetInventarioGeneral()
+        {
+            var inventario = await _context.AlmacenInventarios
+                .Include(i => i.Producto)
+                .Include(i => i.Ubicacion)
+                .Where(i => i.CantidadDisponible > 0)
+                .Select(i => new {
+                    codigo = i.Producto.Codigo,
+                    producto = i.Producto.Nombre,
+                    ubicacion = i.Ubicacion != null ? $"{i.Ubicacion.Rack}-{i.Ubicacion.Nivel}-{i.Ubicacion.Posicion}" : "",
+                    stock = i.CantidadDisponible,
+                    unidad = i.Producto.UnidadMedida,
+                    estado = i.CantidadDisponible > i.Producto.StockMinimo ? "Optimo" : "Stock Bajo",
+                    imagenUrl = i.Producto.ImagenUrl
+                })
+                .ToListAsync();
+            return Ok(inventario);
         }
 
         // GET: api/almacen/kardex
@@ -164,6 +186,7 @@ namespace DNIContractApi.Controllers
             public string Proveedor { get; set; } = string.Empty;
             public decimal? Peso { get; set; }
             public string DescripcionCarga { get; set; } = string.Empty;
+            public string? ImagenBase64 { get; set; }
         }
 
         public class DespachoRequest
@@ -194,6 +217,28 @@ namespace DNIContractApi.Controllers
                     producto = new AlmacenProducto { Codigo = request.ProductoCodigo, Nombre = $"Producto {request.ProductoCodigo}" };
                     _context.AlmacenProductos.Add(producto);
                     await _context.SaveChangesAsync();
+                }
+
+                if (!string.IsNullOrEmpty(request.ImagenBase64))
+                {
+                    try
+                    {
+                        var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "productos");
+                        if (!Directory.Exists(uploadsFolder)) Directory.CreateDirectory(uploadsFolder);
+                        
+                        var base64Data = request.ImagenBase64.Split(',').Length > 1 ? request.ImagenBase64.Split(',')[1] : request.ImagenBase64;
+                        var imageBytes = Convert.FromBase64String(base64Data);
+                        var fileName = $"{Guid.NewGuid()}.jpg";
+                        var filePath = Path.Combine(uploadsFolder, fileName);
+                        await System.IO.File.WriteAllBytesAsync(filePath, imageBytes);
+                        
+                        producto.ImagenUrl = $"/uploads/productos/{fileName}";
+                        await _context.SaveChangesAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log error optionally
+                    }
                 }
 
                 var ubicacion = await _context.AlmacenUbicaciones.FirstOrDefaultAsync(u => u.Rack == request.UbicacionRack);
