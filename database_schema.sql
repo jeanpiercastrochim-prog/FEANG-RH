@@ -1,15 +1,54 @@
-﻿IF OBJECT_ID(N'[__EFMigrationsHistory]') IS NULL
-BEGIN
-    CREATE TABLE [__EFMigrationsHistory] (
-        [MigrationId] nvarchar(150) NOT NULL,
-        [ProductVersion] nvarchar(32) NOT NULL,
-        CONSTRAINT [PK___EFMigrationsHistory] PRIMARY KEY ([MigrationId])
-    );
-END;
+﻿CREATE TABLE [Almacen_Auditoria] (
+    [Id] int NOT NULL IDENTITY,
+    [Rack] nvarchar(50) NOT NULL,
+    [FechaAuditoria] datetime2 NOT NULL,
+    [Auditor] nvarchar(100) NOT NULL,
+    [TieneDiscrepancias] bit NOT NULL,
+    CONSTRAINT [PK_Almacen_Auditoria] PRIMARY KEY ([Id])
+);
 GO
 
-BEGIN TRANSACTION;
+
+CREATE TABLE [Almacen_Producto] (
+    [Id] int NOT NULL IDENTITY,
+    [Codigo] nvarchar(100) NOT NULL,
+    [Nombre] nvarchar(255) NOT NULL,
+    [UnidadMedida] nvarchar(50) NOT NULL,
+    [StockMinimo] int NOT NULL,
+    [ControlaVencimiento] bit NOT NULL,
+    [ImagenUrl] nvarchar(500) NULL,
+    [CreatedAt] datetime2 NOT NULL,
+    CONSTRAINT [PK_Almacen_Producto] PRIMARY KEY ([Id])
+);
 GO
+
+
+CREATE TABLE [Almacen_Rack] (
+    [Id] int NOT NULL IDENTITY,
+    [Codigo] nvarchar(50) NOT NULL,
+    [PosicionX] int NOT NULL,
+    [PosicionY] int NOT NULL,
+    [NumeroColumnas] int NOT NULL,
+    [NumeroNiveles] int NOT NULL,
+    [CreatedAt] datetime2 NOT NULL,
+    CONSTRAINT [PK_Almacen_Rack] PRIMARY KEY ([Id])
+);
+GO
+
+
+CREATE TABLE [Almacen_Ubicacion] (
+    [Id] int NOT NULL IDENTITY,
+    [Zona] nvarchar(50) NOT NULL,
+    [Rack] nvarchar(50) NOT NULL,
+    [Nivel] nvarchar(50) NOT NULL,
+    [Posicion] nvarchar(50) NOT NULL,
+    [CapacidadMaxima] int NOT NULL,
+    [Estado] nvarchar(20) NOT NULL,
+    [CreatedAt] datetime2 NOT NULL,
+    CONSTRAINT [PK_Almacen_Ubicacion] PRIMARY KEY ([Id])
+);
+GO
+
 
 CREATE TABLE [AppNotifications] (
     [Id] int NOT NULL IDENTITY,
@@ -21,6 +60,7 @@ CREATE TABLE [AppNotifications] (
     CONSTRAINT [PK_AppNotifications] PRIMARY KEY ([Id])
 );
 GO
+
 
 CREATE TABLE [Definiciones] (
     [Codigo] nvarchar(450) NOT NULL,
@@ -35,6 +75,7 @@ CREATE TABLE [Definiciones] (
 );
 GO
 
+
 CREATE TABLE [Payslips] (
     [Id] int NOT NULL IDENTITY,
     [Periodo] datetime2 NOT NULL,
@@ -42,6 +83,21 @@ CREATE TABLE [Payslips] (
     CONSTRAINT [PK_Payslips] PRIMARY KEY ([Id])
 );
 GO
+
+
+CREATE TABLE [TransViajes] (
+    [Id] int NOT NULL IDENTITY,
+    [ConductorDni] nvarchar(max) NOT NULL,
+    [UnidadPlaca] nvarchar(max) NOT NULL,
+    [Origen] nvarchar(max) NOT NULL,
+    [Destino] nvarchar(max) NOT NULL,
+    [Estado] nvarchar(max) NOT NULL,
+    [FechaInicio] datetime2 NOT NULL,
+    [FechaFin] datetime2 NULL,
+    CONSTRAINT [PK_TransViajes] PRIMARY KEY ([Id])
+);
+GO
+
 
 CREATE TABLE [Ubigeo] (
     [Id] int NOT NULL IDENTITY,
@@ -51,6 +107,7 @@ CREATE TABLE [Ubigeo] (
     CONSTRAINT [PK_Ubigeo] PRIMARY KEY ([Id])
 );
 GO
+
 
 CREATE TABLE [Users] (
     [Id] int NOT NULL IDENTITY,
@@ -73,6 +130,35 @@ CREATE TABLE [Users] (
 );
 GO
 
+
+CREATE TABLE [Almacen_Auditoria_Detalle] (
+    [Id] int NOT NULL IDENTITY,
+    [AuditoriaId] int NOT NULL,
+    [ProductoCodigo] nvarchar(100) NOT NULL,
+    [CantidadEsperada] int NOT NULL,
+    [CantidadEscaneada] int NOT NULL,
+    [Diferencia] int NOT NULL,
+    CONSTRAINT [PK_Almacen_Auditoria_Detalle] PRIMARY KEY ([Id]),
+    CONSTRAINT [FK_Almacen_Auditoria_Detalle_Almacen_Auditoria_AuditoriaId] FOREIGN KEY ([AuditoriaId]) REFERENCES [Almacen_Auditoria] ([Id]) ON DELETE CASCADE
+);
+GO
+
+
+CREATE TABLE [Almacen_Inventario] (
+    [Id] int NOT NULL IDENTITY,
+    [ProductoId] int NOT NULL,
+    [UbicacionId] int NOT NULL,
+    [Lote] nvarchar(50) NOT NULL,
+    [FechaVencimiento] datetime2 NULL,
+    [CantidadDisponible] int NOT NULL,
+    [LastUpdated] datetime2 NOT NULL,
+    CONSTRAINT [PK_Almacen_Inventario] PRIMARY KEY ([Id]),
+    CONSTRAINT [FK_Almacen_Inventario_Almacen_Producto_ProductoId] FOREIGN KEY ([ProductoId]) REFERENCES [Almacen_Producto] ([Id]) ON DELETE CASCADE,
+    CONSTRAINT [FK_Almacen_Inventario_Almacen_Ubicacion_UbicacionId] FOREIGN KEY ([UbicacionId]) REFERENCES [Almacen_Ubicacion] ([Id]) ON DELETE CASCADE
+);
+GO
+
+
 CREATE TABLE [DefinicionDetalle] (
     [Id] int NOT NULL IDENTITY,
     [DefinicionCodigo] nvarchar(450) NOT NULL,
@@ -89,6 +175,61 @@ CREATE TABLE [DefinicionDetalle] (
     CONSTRAINT [FK_DefinicionDetalle_Definiciones_DefinicionCodigo] FOREIGN KEY ([DefinicionCodigo]) REFERENCES [Definiciones] ([Codigo]) ON DELETE CASCADE
 );
 GO
+
+
+CREATE TABLE [TransAlertas] (
+    [Id] int NOT NULL IDENTITY,
+    [ViajeId] int NOT NULL,
+    [Tipo] nvarchar(max) NOT NULL,
+    [Titulo] nvarchar(max) NOT NULL,
+    [Detalle] nvarchar(max) NOT NULL,
+    [FotoBase64] nvarchar(max) NULL,
+    [Timestamp] datetime2 NOT NULL,
+    [IsActive] bit NOT NULL,
+    CONSTRAINT [PK_TransAlertas] PRIMARY KEY ([Id]),
+    CONSTRAINT [FK_TransAlertas_TransViajes_ViajeId] FOREIGN KEY ([ViajeId]) REFERENCES [TransViajes] ([Id]) ON DELETE CASCADE
+);
+GO
+
+
+CREATE TABLE [TransUbicaciones] (
+    [Id] int NOT NULL IDENTITY,
+    [ViajeId] int NOT NULL,
+    [Latitud] float NOT NULL,
+    [Longitud] float NOT NULL,
+    [Velocidad] float NOT NULL,
+    [Bateria] float NOT NULL,
+    [Timestamp] datetime2 NOT NULL,
+    CONSTRAINT [PK_TransUbicaciones] PRIMARY KEY ([Id]),
+    CONSTRAINT [FK_TransUbicaciones_TransViajes_ViajeId] FOREIGN KEY ([ViajeId]) REFERENCES [TransViajes] ([Id]) ON DELETE CASCADE
+);
+GO
+
+
+CREATE TABLE [Almacen_Movimiento] (
+    [Id] int NOT NULL IDENTITY,
+    [TipoMovimiento] nvarchar(20) NOT NULL,
+    [InventarioId] int NOT NULL,
+    [Cantidad] int NOT NULL,
+    [Peso] decimal(18,2) NULL,
+    [DocumentoReferencia] nvarchar(100) NOT NULL,
+    [Responsable] nvarchar(255) NOT NULL,
+    [Solicitante] nvarchar(255) NOT NULL,
+    [AreaSolicitante] nvarchar(100) NOT NULL,
+    [CargoSolicitante] nvarchar(100) NOT NULL,
+    [VehiculoAsignado] nvarchar(50) NOT NULL,
+    [Turno] nvarchar(50) NOT NULL,
+    [Planta] nvarchar(100) NOT NULL,
+    [EquipoLinea] nvarchar(100) NOT NULL,
+    [DescripcionCarga] nvarchar(1000) NOT NULL,
+    [MotivoObservacion] nvarchar(200) NOT NULL,
+    [FirmaUrl] nvarchar(255) NULL,
+    [FechaMovimiento] datetime2 NOT NULL,
+    CONSTRAINT [PK_Almacen_Movimiento] PRIMARY KEY ([Id]),
+    CONSTRAINT [FK_Almacen_Movimiento_Almacen_Inventario_InventarioId] FOREIGN KEY ([InventarioId]) REFERENCES [Almacen_Inventario] ([Id]) ON DELETE CASCADE
+);
+GO
+
 
 CREATE TABLE [Cargos] (
     [Id] int NOT NULL IDENTITY,
@@ -110,6 +251,7 @@ CREATE TABLE [Cargos] (
 );
 GO
 
+
 CREATE TABLE [Contracts] (
     [Id] int NOT NULL IDENTITY,
     [Name] nvarchar(max) NOT NULL,
@@ -121,6 +263,7 @@ CREATE TABLE [Contracts] (
 );
 GO
 
+
 CREATE TABLE [Employees] (
     [Id] int NOT NULL IDENTITY,
     [UserId] int NULL,
@@ -129,40 +272,42 @@ CREATE TABLE [Employees] (
     [ApellidoMaterno] nvarchar(max) NOT NULL,
     [Dni] nvarchar(max) NOT NULL,
     [FechaNacimiento] datetime2 NOT NULL,
-    [GeneroId] int NOT NULL,
-    [GeneroDefinicionCodigo] nvarchar(450) NOT NULL,
-    [EstadoCivilId] int NOT NULL,
-    [EstadoCivilDefinicionCodigo] nvarchar(450) NOT NULL,
+    [GeneroId] int NULL,
+    [GeneroDefinicionCodigo] nvarchar(450) NULL,
+    [EstadoCivilId] int NULL,
+    [EstadoCivilDefinicionCodigo] nvarchar(450) NULL,
     [Direccion] nvarchar(max) NOT NULL,
-    [UbigeoId] int NOT NULL,
+    [UbigeoId] int NULL,
     [Telefono] nvarchar(max) NULL,
     [CorreoPersonal] nvarchar(max) NULL,
     [CorreoCorporativo] nvarchar(max) NULL,
-    [CargoId] int NOT NULL,
+    [CargoId] int NULL,
     [BaseSalary] decimal(18,2) NOT NULL,
-    [EstadoEmpleadoId] int NOT NULL,
-    [EstadoEmpleadoDefinicionCodigo] nvarchar(450) NOT NULL,
+    [EstadoEmpleadoId] int NULL,
+    [EstadoEmpleadoDefinicionCodigo] nvarchar(450) NULL,
     [FechaIngreso] datetime2 NOT NULL,
     [FechaCese] datetime2 NULL,
-    [TipoContratoId] int NOT NULL,
-    [TipoContratoDefinicionCodigo] nvarchar(450) NOT NULL,
+    [TipoContratoId] int NULL,
+    [TipoContratoDefinicionCodigo] nvarchar(450) NULL,
     [BancoId] int NULL,
-    [BancoDefinicionCodigo] nvarchar(450) NOT NULL,
+    [BancoDefinicionCodigo] nvarchar(450) NULL,
     [TipoCuentaBancariaId] int NULL,
-    [TipoCuentaBancariaDefinicionCodigo] nvarchar(450) NOT NULL,
+    [TipoCuentaBancariaDefinicionCodigo] nvarchar(450) NULL,
     [NumeroCuenta] nvarchar(max) NULL,
     [CCI] nvarchar(max) NULL,
     [AFPId] int NULL,
-    [AFPDefinicionCodigo] nvarchar(450) NOT NULL,
+    [AFPDefinicionCodigo] nvarchar(450) NULL,
     [CodigoAFP] nvarchar(max) NULL,
     [SignatureImagePath] nvarchar(max) NULL,
+    [HasBiometrics] bit NOT NULL,
+    [ProfileImagePath] nvarchar(max) NULL,
     [ContactoEmergencia] nvarchar(max) NULL,
     [Parentesco] nvarchar(max) NULL,
     [TelefonoEmergencia] nvarchar(max) NULL,
     [CreatedBy] int NULL,
     [CreatedAt] datetime2 NOT NULL,
     [ModifiedBy] int NULL,
-    [ModifiedAt] datetime2 NULL,
+    [SignatureMetadata] nvarchar(max) NULL,
     CONSTRAINT [PK_Employees] PRIMARY KEY ([Id]),
     CONSTRAINT [FK_Employees_Cargos_CargoId] FOREIGN KEY ([CargoId]) REFERENCES [Cargos] ([Id]) ON DELETE NO ACTION,
     CONSTRAINT [FK_Employees_DefinicionDetalle_AFPDefinicionCodigo_AFPId] FOREIGN KEY ([AFPDefinicionCodigo], [AFPId]) REFERENCES [DefinicionDetalle] ([DefinicionCodigo], [Id]) ON DELETE NO ACTION,
@@ -177,6 +322,7 @@ CREATE TABLE [Employees] (
 );
 GO
 
+
 CREATE TABLE [DniPhotos] (
     [Id] int NOT NULL IDENTITY,
     [EmployeeId] int NOT NULL,
@@ -187,11 +333,15 @@ CREATE TABLE [DniPhotos] (
 );
 GO
 
+
 CREATE TABLE [EmployeeContracts] (
     [Id] uniqueidentifier NOT NULL,
     [EmployeeId] int NOT NULL,
     [ContractId] int NOT NULL,
     [Estado] nvarchar(max) NOT NULL,
+    [RejectionReason] nvarchar(max) NULL,
+    [SignatureMetadata] nvarchar(max) NULL,
+    [BiometricValidation] bit NOT NULL,
     [SignedAt] datetime2 NULL,
     [CreatedAt] datetime2 NOT NULL,
     CONSTRAINT [PK_EmployeeContracts] PRIMARY KEY ([Id]),
@@ -199,6 +349,7 @@ CREATE TABLE [EmployeeContracts] (
     CONSTRAINT [FK_EmployeeContracts_Employees_EmployeeId] FOREIGN KEY ([EmployeeId]) REFERENCES [Employees] ([Id]) ON DELETE CASCADE
 );
 GO
+
 
 CREATE TABLE [EmployeeEducation] (
     [Id] int NOT NULL IDENTITY,
@@ -219,6 +370,7 @@ CREATE TABLE [EmployeeEducation] (
     CONSTRAINT [FK_EmployeeEducation_Employees_EmployeeId] FOREIGN KEY ([EmployeeId]) REFERENCES [Employees] ([Id]) ON DELETE CASCADE
 );
 GO
+
 
 CREATE TABLE [EmployeePayslips] (
     [Id] int NOT NULL IDENTITY,
@@ -242,86 +394,14 @@ CREATE TABLE [EmployeePayslips] (
 );
 GO
 
-CREATE INDEX [IX_Cargos_AreaDefinicionCodigo_AreaId] ON [Cargos] ([AreaDefinicionCodigo], [AreaId]);
-GO
-
-CREATE INDEX [IX_Cargos_NivelDefinicionCodigo_NivelId] ON [Cargos] ([NivelDefinicionCodigo], [NivelId]);
-GO
-
-CREATE INDEX [IX_Contracts_CargoId] ON [Contracts] ([CargoId]);
-GO
-
-CREATE UNIQUE INDEX [IX_DefinicionDetalle_DefinicionCodigo_Id] ON [DefinicionDetalle] ([DefinicionCodigo], [Id]);
-GO
-
-CREATE INDEX [IX_DniPhotos_EmployeeId] ON [DniPhotos] ([EmployeeId]);
-GO
-
-CREATE INDEX [IX_EmployeeContracts_ContractId] ON [EmployeeContracts] ([ContractId]);
-GO
-
-CREATE INDEX [IX_EmployeeContracts_EmployeeId] ON [EmployeeContracts] ([EmployeeId]);
-GO
-
-CREATE INDEX [IX_EmployeeEducation_EmployeeId] ON [EmployeeEducation] ([EmployeeId]);
-GO
-
-CREATE INDEX [IX_EmployeeEducation_NivelEducacionDefinicionCodigo_NivelEducacionId] ON [EmployeeEducation] ([NivelEducacionDefinicionCodigo], [NivelEducacionId]);
-GO
-
-CREATE INDEX [IX_EmployeePayslips_EmployeeId] ON [EmployeePayslips] ([EmployeeId]);
-GO
-
-CREATE INDEX [IX_EmployeePayslips_PayslipId] ON [EmployeePayslips] ([PayslipId]);
-GO
-
-CREATE INDEX [IX_Employees_AFPDefinicionCodigo_AFPId] ON [Employees] ([AFPDefinicionCodigo], [AFPId]);
-GO
-
-CREATE INDEX [IX_Employees_BancoDefinicionCodigo_BancoId] ON [Employees] ([BancoDefinicionCodigo], [BancoId]);
-GO
-
-CREATE INDEX [IX_Employees_CargoId] ON [Employees] ([CargoId]);
-GO
-
-CREATE INDEX [IX_Employees_EstadoCivilDefinicionCodigo_EstadoCivilId] ON [Employees] ([EstadoCivilDefinicionCodigo], [EstadoCivilId]);
-GO
-
-CREATE INDEX [IX_Employees_EstadoEmpleadoDefinicionCodigo_EstadoEmpleadoId] ON [Employees] ([EstadoEmpleadoDefinicionCodigo], [EstadoEmpleadoId]);
-GO
-
-CREATE INDEX [IX_Employees_GeneroDefinicionCodigo_GeneroId] ON [Employees] ([GeneroDefinicionCodigo], [GeneroId]);
-GO
-
-CREATE INDEX [IX_Employees_TipoContratoDefinicionCodigo_TipoContratoId] ON [Employees] ([TipoContratoDefinicionCodigo], [TipoContratoId]);
-GO
-
-CREATE INDEX [IX_Employees_TipoCuentaBancariaDefinicionCodigo_TipoCuentaBancariaId] ON [Employees] ([TipoCuentaBancariaDefinicionCodigo], [TipoCuentaBancariaId]);
-GO
-
-CREATE INDEX [IX_Employees_UbigeoId] ON [Employees] ([UbigeoId]);
-GO
-
-CREATE INDEX [IX_Employees_UserId] ON [Employees] ([UserId]);
-GO
-
-INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-VALUES (N'20260717223041_MigrateCargosAreaNivelSueldo', N'8.0.0');
-GO
-
-COMMIT;
-GO
-
-BEGIN TRANSACTION;
-GO
 
 CREATE TABLE [EmployeeRequests] (
     [Id] int NOT NULL IDENTITY,
     [EmployeeId] int NOT NULL,
-    [Type] nvarchar(max) NOT NULL,
-    [FormData] nvarchar(max) NOT NULL,
-    [Status] nvarchar(max) NOT NULL,
-    [Observations] nvarchar(max) NOT NULL,
+    [Type] nvarchar(max) NULL,
+    [FormData] nvarchar(max) NULL,
+    [Status] nvarchar(max) NULL,
+    [Observations] nvarchar(max) NULL,
     [CreatedAt] datetime2 NOT NULL,
     [UpdatedAt] datetime2 NULL,
     CONSTRAINT [PK_EmployeeRequests] PRIMARY KEY ([Id]),
@@ -329,255 +409,116 @@ CREATE TABLE [EmployeeRequests] (
 );
 GO
 
-CREATE INDEX [IX_EmployeeRequests_EmployeeId] ON [EmployeeRequests] ([EmployeeId]);
+
+CREATE INDEX [IX_Almacen_Auditoria_Detalle_AuditoriaId] ON [Almacen_Auditoria_Detalle] ([AuditoriaId]);
 GO
 
-INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-VALUES (N'20260717231139_AddEmployeeRequests', N'8.0.0');
-GO
-
-COMMIT;
-GO
-
-BEGIN TRANSACTION;
-GO
-
-ALTER TABLE [Employees] ADD [HasBiometrics] bit NOT NULL DEFAULT CAST(0 AS bit);
-GO
-
-ALTER TABLE [Employees] ADD [ProfileImagePath] nvarchar(max) NULL;
-GO
-
-CREATE TABLE [TransViajes] (
-    [Id] int NOT NULL IDENTITY,
-    [ConductorDni] nvarchar(max) NOT NULL,
-    [UnidadPlaca] nvarchar(max) NOT NULL,
-    [Origen] nvarchar(max) NOT NULL,
-    [Destino] nvarchar(max) NOT NULL,
-    [Estado] nvarchar(max) NOT NULL,
-    [FechaInicio] datetime2 NOT NULL,
-    [FechaFin] datetime2 NULL,
-    CONSTRAINT [PK_TransViajes] PRIMARY KEY ([Id])
-);
-GO
-
-CREATE TABLE [TransAlertas] (
-    [Id] int NOT NULL IDENTITY,
-    [ViajeId] int NOT NULL,
-    [Tipo] nvarchar(max) NOT NULL,
-    [Titulo] nvarchar(max) NOT NULL,
-    [Detalle] nvarchar(max) NOT NULL,
-    [Timestamp] datetime2 NOT NULL,
-    [IsActive] bit NOT NULL,
-    CONSTRAINT [PK_TransAlertas] PRIMARY KEY ([Id]),
-    CONSTRAINT [FK_TransAlertas_TransViajes_ViajeId] FOREIGN KEY ([ViajeId]) REFERENCES [TransViajes] ([Id]) ON DELETE CASCADE
-);
-GO
-
-CREATE TABLE [TransUbicaciones] (
-    [Id] int NOT NULL IDENTITY,
-    [ViajeId] int NOT NULL,
-    [Latitud] float NOT NULL,
-    [Longitud] float NOT NULL,
-    [Velocidad] float NOT NULL,
-    [Bateria] float NOT NULL,
-    [Timestamp] datetime2 NOT NULL,
-    CONSTRAINT [PK_TransUbicaciones] PRIMARY KEY ([Id]),
-    CONSTRAINT [FK_TransUbicaciones_TransViajes_ViajeId] FOREIGN KEY ([ViajeId]) REFERENCES [TransViajes] ([Id]) ON DELETE CASCADE
-);
-GO
-
-CREATE INDEX [IX_TransAlertas_ViajeId] ON [TransAlertas] ([ViajeId]);
-GO
-
-CREATE INDEX [IX_TransUbicaciones_ViajeId] ON [TransUbicaciones] ([ViajeId]);
-GO
-
-INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-VALUES (N'20260719214647_AddTransportModels', N'8.0.0');
-GO
-
-COMMIT;
-GO
-
-BEGIN TRANSACTION;
-GO
-
-ALTER TABLE [TransAlertas] ADD [FotoBase64] nvarchar(max) NULL;
-GO
-
-DECLARE @var0 sysname;
-SELECT @var0 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[EmployeeRequests]') AND [c].[name] = N'Type');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE [EmployeeRequests] DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE [EmployeeRequests] ALTER COLUMN [Type] nvarchar(max) NULL;
-GO
-
-DECLARE @var1 sysname;
-SELECT @var1 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[EmployeeRequests]') AND [c].[name] = N'Status');
-IF @var1 IS NOT NULL EXEC(N'ALTER TABLE [EmployeeRequests] DROP CONSTRAINT [' + @var1 + '];');
-ALTER TABLE [EmployeeRequests] ALTER COLUMN [Status] nvarchar(max) NULL;
-GO
-
-DECLARE @var2 sysname;
-SELECT @var2 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[EmployeeRequests]') AND [c].[name] = N'Observations');
-IF @var2 IS NOT NULL EXEC(N'ALTER TABLE [EmployeeRequests] DROP CONSTRAINT [' + @var2 + '];');
-ALTER TABLE [EmployeeRequests] ALTER COLUMN [Observations] nvarchar(max) NULL;
-GO
-
-DECLARE @var3 sysname;
-SELECT @var3 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[EmployeeRequests]') AND [c].[name] = N'FormData');
-IF @var3 IS NOT NULL EXEC(N'ALTER TABLE [EmployeeRequests] DROP CONSTRAINT [' + @var3 + '];');
-ALTER TABLE [EmployeeRequests] ALTER COLUMN [FormData] nvarchar(max) NULL;
-GO
-
-CREATE TABLE [Almacen_Producto] (
-    [Id] int NOT NULL IDENTITY,
-    [Codigo] nvarchar(100) NOT NULL,
-    [Nombre] nvarchar(255) NOT NULL,
-    [UnidadMedida] nvarchar(50) NOT NULL,
-    [StockMinimo] int NOT NULL,
-    [ControlaVencimiento] bit NOT NULL,
-    [CreatedAt] datetime2 NOT NULL,
-    CONSTRAINT [PK_Almacen_Producto] PRIMARY KEY ([Id])
-);
-GO
-
-CREATE TABLE [Almacen_Ubicacion] (
-    [Id] int NOT NULL IDENTITY,
-    [Zona] nvarchar(50) NOT NULL,
-    [Rack] nvarchar(50) NOT NULL,
-    [Nivel] nvarchar(50) NOT NULL,
-    [Posicion] nvarchar(50) NOT NULL,
-    [CapacidadMaxima] int NOT NULL,
-    [Estado] nvarchar(20) NOT NULL,
-    [CreatedAt] datetime2 NOT NULL,
-    CONSTRAINT [PK_Almacen_Ubicacion] PRIMARY KEY ([Id])
-);
-GO
-
-CREATE TABLE [Almacen_Inventario] (
-    [Id] int NOT NULL IDENTITY,
-    [ProductoId] int NOT NULL,
-    [UbicacionId] int NOT NULL,
-    [Lote] nvarchar(50) NOT NULL,
-    [FechaVencimiento] datetime2 NULL,
-    [CantidadDisponible] int NOT NULL,
-    [LastUpdated] datetime2 NOT NULL,
-    CONSTRAINT [PK_Almacen_Inventario] PRIMARY KEY ([Id]),
-    CONSTRAINT [FK_Almacen_Inventario_Almacen_Producto_ProductoId] FOREIGN KEY ([ProductoId]) REFERENCES [Almacen_Producto] ([Id]) ON DELETE CASCADE,
-    CONSTRAINT [FK_Almacen_Inventario_Almacen_Ubicacion_UbicacionId] FOREIGN KEY ([UbicacionId]) REFERENCES [Almacen_Ubicacion] ([Id]) ON DELETE CASCADE
-);
-GO
-
-CREATE TABLE [Almacen_Movimiento] (
-    [Id] int NOT NULL IDENTITY,
-    [TipoMovimiento] nvarchar(20) NOT NULL,
-    [InventarioId] int NOT NULL,
-    [Cantidad] int NOT NULL,
-    [DocumentoReferencia] nvarchar(100) NOT NULL,
-    [Responsable] nvarchar(255) NOT NULL,
-    [Solicitante] nvarchar(255) NOT NULL,
-    [MotivoObservacion] nvarchar(500) NOT NULL,
-    [FechaMovimiento] datetime2 NOT NULL,
-    CONSTRAINT [PK_Almacen_Movimiento] PRIMARY KEY ([Id]),
-    CONSTRAINT [FK_Almacen_Movimiento_Almacen_Inventario_InventarioId] FOREIGN KEY ([InventarioId]) REFERENCES [Almacen_Inventario] ([Id]) ON DELETE CASCADE
-);
-GO
 
 CREATE INDEX [IX_Almacen_Inventario_ProductoId] ON [Almacen_Inventario] ([ProductoId]);
 GO
 
+
 CREATE INDEX [IX_Almacen_Inventario_UbicacionId] ON [Almacen_Inventario] ([UbicacionId]);
 GO
+
 
 CREATE INDEX [IX_Almacen_Movimiento_InventarioId] ON [Almacen_Movimiento] ([InventarioId]);
 GO
 
-INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-VALUES (N'20260724210949_InitialAlmacen', N'8.0.0');
+
+CREATE INDEX [IX_Cargos_AreaDefinicionCodigo_AreaId] ON [Cargos] ([AreaDefinicionCodigo], [AreaId]);
 GO
 
-COMMIT;
+
+CREATE INDEX [IX_Cargos_NivelDefinicionCodigo_NivelId] ON [Cargos] ([NivelDefinicionCodigo], [NivelId]);
 GO
 
-BEGIN TRANSACTION;
+
+CREATE INDEX [IX_Contracts_CargoId] ON [Contracts] ([CargoId]);
 GO
 
-ALTER TABLE [Almacen_Movimiento] ADD [AreaSolicitante] nvarchar(100) NOT NULL DEFAULT N'';
+
+CREATE UNIQUE INDEX [IX_DefinicionDetalle_DefinicionCodigo_Id] ON [DefinicionDetalle] ([DefinicionCodigo], [Id]);
 GO
 
-ALTER TABLE [Almacen_Movimiento] ADD [CargoSolicitante] nvarchar(100) NOT NULL DEFAULT N'';
+
+CREATE INDEX [IX_DniPhotos_EmployeeId] ON [DniPhotos] ([EmployeeId]);
 GO
 
-ALTER TABLE [Almacen_Movimiento] ADD [DescripcionCarga] nvarchar(1000) NOT NULL DEFAULT N'';
+
+CREATE INDEX [IX_EmployeeContracts_ContractId] ON [EmployeeContracts] ([ContractId]);
 GO
 
-ALTER TABLE [Almacen_Movimiento] ADD [EquipoLinea] nvarchar(100) NOT NULL DEFAULT N'';
+
+CREATE INDEX [IX_EmployeeContracts_EmployeeId] ON [EmployeeContracts] ([EmployeeId]);
 GO
 
-ALTER TABLE [Almacen_Movimiento] ADD [Peso] decimal(18,2) NULL;
+
+CREATE INDEX [IX_EmployeeEducation_EmployeeId] ON [EmployeeEducation] ([EmployeeId]);
 GO
 
-ALTER TABLE [Almacen_Movimiento] ADD [Planta] nvarchar(100) NOT NULL DEFAULT N'';
+
+CREATE INDEX [IX_EmployeeEducation_NivelEducacionDefinicionCodigo_NivelEducacionId] ON [EmployeeEducation] ([NivelEducacionDefinicionCodigo], [NivelEducacionId]);
 GO
 
-ALTER TABLE [Almacen_Movimiento] ADD [Turno] nvarchar(50) NOT NULL DEFAULT N'';
+
+CREATE INDEX [IX_EmployeePayslips_EmployeeId] ON [EmployeePayslips] ([EmployeeId]);
 GO
 
-ALTER TABLE [Almacen_Movimiento] ADD [VehiculoAsignado] nvarchar(50) NOT NULL DEFAULT N'';
+
+CREATE INDEX [IX_EmployeePayslips_PayslipId] ON [EmployeePayslips] ([PayslipId]);
 GO
 
-INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-VALUES (N'20260726190947_AlmacenCamposTrazabilidad', N'8.0.0');
+
+CREATE INDEX [IX_EmployeeRequests_EmployeeId] ON [EmployeeRequests] ([EmployeeId]);
 GO
 
-COMMIT;
+
+CREATE INDEX [IX_Employees_AFPDefinicionCodigo_AFPId] ON [Employees] ([AFPDefinicionCodigo], [AFPId]);
 GO
 
-BEGIN TRANSACTION;
+
+CREATE INDEX [IX_Employees_BancoDefinicionCodigo_BancoId] ON [Employees] ([BancoDefinicionCodigo], [BancoId]);
 GO
 
-CREATE TABLE [Almacen_Rack] (
-    [Id] int NOT NULL IDENTITY,
-    [Codigo] nvarchar(50) NOT NULL,
-    [PosicionX] int NOT NULL,
-    [PosicionY] int NOT NULL,
-    [NumeroColumnas] int NOT NULL,
-    [NumeroNiveles] int NOT NULL,
-    [CreatedAt] datetime2 NOT NULL,
-    CONSTRAINT [PK_Almacen_Rack] PRIMARY KEY ([Id])
-);
+
+CREATE INDEX [IX_Employees_CargoId] ON [Employees] ([CargoId]);
 GO
 
-INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-VALUES (N'20260726192344_AlmacenMapEditor', N'8.0.0');
+
+CREATE INDEX [IX_Employees_EstadoCivilDefinicionCodigo_EstadoCivilId] ON [Employees] ([EstadoCivilDefinicionCodigo], [EstadoCivilId]);
 GO
 
-COMMIT;
+
+CREATE INDEX [IX_Employees_EstadoEmpleadoDefinicionCodigo_EstadoEmpleadoId] ON [Employees] ([EstadoEmpleadoDefinicionCodigo], [EstadoEmpleadoId]);
 GO
 
-BEGIN TRANSACTION;
+
+CREATE INDEX [IX_Employees_GeneroDefinicionCodigo_GeneroId] ON [Employees] ([GeneroDefinicionCodigo], [GeneroId]);
 GO
 
-ALTER TABLE [Almacen_Producto] ADD [ImagenUrl] nvarchar(500) NULL;
+
+CREATE INDEX [IX_Employees_TipoContratoDefinicionCodigo_TipoContratoId] ON [Employees] ([TipoContratoDefinicionCodigo], [TipoContratoId]);
 GO
 
-INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-VALUES (N'20260728000205_AddProductoImagen', N'8.0.0');
+
+CREATE INDEX [IX_Employees_TipoCuentaBancariaDefinicionCodigo_TipoCuentaBancariaId] ON [Employees] ([TipoCuentaBancariaDefinicionCodigo], [TipoCuentaBancariaId]);
 GO
 
-COMMIT;
+
+CREATE INDEX [IX_Employees_UbigeoId] ON [Employees] ([UbigeoId]);
 GO
+
+
+CREATE INDEX [IX_Employees_UserId] ON [Employees] ([UserId]);
+GO
+
+
+CREATE INDEX [IX_TransAlertas_ViajeId] ON [TransAlertas] ([ViajeId]);
+GO
+
+
+CREATE INDEX [IX_TransUbicaciones_ViajeId] ON [TransUbicaciones] ([ViajeId]);
+GO
+
 
