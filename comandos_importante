@@ -34,54 +34,51 @@
 ## 🔐 PARTE 2: CUENTAS DE ACCESO POR PERFILES
 ================================================================================
 
-### 👥 PERFIL: RECURSOS HUMANOS (RH)
-*Acceso habilitado desde: Web y Aplicación Móvil*
+### 👑 PERFIL: ADMINISTRADOR (DASHBOARDS WEB)
+*Acceso habilitado a: Dashboard RH, Dashboard Transporte, Dashboard Almacén*
 
-- **Administrador (Jeanpier)**
+- **Administrador General (Jean Pierre Castro)**
   - **DNI:** `76938037`
   - **Clave:** `jeanpier55`
 
-- **Personal de Campo (Flavio)**
+________________________________________________________________________________
+
+### 👥 PERFIL: RECURSOS HUMANOS (RH)
+*Acceso habilitado desde: Aplicación Móvil*
+
+- **Personal RH 1**
+  - **DNI:** `11111111`
+  - **Clave:** `rh123`
+
+- **Personal RH 2**
   - **DNI:** `22222222`
-  - **Clave:** `flavio123`
+  - **Clave:** `rh123`
 
 ________________________________________________________________________________
 
 ### 🚚 PERFIL: TRANSPORTISTAS
-*Acceso habilitado desde: Web y Aplicación Móvil*
+*Acceso habilitado desde: Aplicación Móvil*
 
-- **Transportista Principal**
-  - **DNI:** `11111111`
-  - **Clave:** `trans123`
-
-- **Carlos (Maneja unidad CHV-014)**
+- **Transportista 1**
   - **DNI:** `33333333`
   - **Clave:** `trans123`
 
-- **Ana (Maneja unidad CHV-022)**
+- **Transportista 2**
   - **DNI:** `44444444`
-  - **Clave:** `trans123`
-
-- **Luis (Maneja unidad CHV-089)**
-  - **DNI:** `55555555`
   - **Clave:** `trans123`
 
 ________________________________________________________________________________
 
 ### 📦 PERFIL: ALMACÉN
-*Acceso habilitado desde: Web (Próximamente en Móvil)*
+*Acceso habilitado desde: Aplicación Móvil (Pantalla Provisional)*
 
-- **Almacenero Principal**
+- **Almacenero 1**
+  - **DNI:** `55555555`
+  - **Clave:** `almacen123`
+
+- **Almacenero 2**
   - **DNI:** `66666666`
   - **Clave:** `almacen123`
-
-- **Almacén TI**
-  - **DNI:** `88888888`
-  - **Clave:** `almacen123`
-
-- **Almacén General**
-  - **DNI:** *(Pendiente)*
-  - **Clave:** *(Pendiente)*
 
 ================================================================================
 ## 🗄️ PARTE 3: COMANDOS ADICIONALES (BASE DE DATOS Y GIT)

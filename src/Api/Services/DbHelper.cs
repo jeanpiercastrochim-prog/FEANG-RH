@@ -62,8 +62,25 @@ namespace DNIContractApi.Services
             }
         }
 
+        public static async Task EnsureDefinicionExists(AppDbContext context, string codigo, string nombre)
+        {
+            var def = await context.Set<Definicion>().FirstOrDefaultAsync(d => d.Codigo == codigo);
+            if (def == null)
+            {
+                def = new Definicion { Codigo = codigo, Nombre = nombre };
+                context.Set<Definicion>().Add(def);
+                await context.SaveChangesAsync();
+            }
+        }
+
         public static async Task ResolveRelationsAsync(AppDbContext context, Employee e)
         {
+            await EnsureDefinicionExists(context, "GENERO", "Género");
+            await EnsureDefinicionExists(context, "ESTADO_CIVIL", "Estado Civil");
+            await EnsureDefinicionExists(context, "ESTADO_EMPLEADO", "Estado del Empleado");
+            await EnsureDefinicionExists(context, "TIPO_CONTRATO", "Tipo de Contrato");
+            await EnsureDefinicionExists(context, "NIVEL_EDUCACION", "Nivel de Educación");
+
             // 1. Resolve Cargo
             var cargoName = string.IsNullOrEmpty(e.Position) ? "Personal de Campo" : e.Position;
             var cargo = await context.Set<Cargo>().FirstOrDefaultAsync(c => c.Nombre == cargoName);
@@ -79,49 +96,76 @@ namespace DNIContractApi.Services
             var dep = string.IsNullOrEmpty(e.Departamento) ? "" : e.Departamento.ToUpper();
             var prov = string.IsNullOrEmpty(e.Provincia) ? "" : e.Provincia.ToUpper();
             var dist = string.IsNullOrEmpty(e.Distrito) ? "" : e.Distrito.ToUpper();
-            var ubigeo = await context.Set<Ubigeo>().FirstOrDefaultAsync(u =>
-                u.Departamento == dep && u.Provincia == prov && u.Distrito == dist);
-            if (ubigeo == null)
+            if (!string.IsNullOrEmpty(dep) || !string.IsNullOrEmpty(prov) || !string.IsNullOrEmpty(dist))
             {
-                ubigeo = new Ubigeo { Departamento = dep, Provincia = prov, Distrito = dist };
-                context.Set<Ubigeo>().Add(ubigeo);
-                await context.SaveChangesAsync();
+                var ubigeo = await context.Set<Ubigeo>().FirstOrDefaultAsync(u =>
+                    u.Departamento == dep && u.Provincia == prov && u.Distrito == dist);
+                if (ubigeo == null)
+                {
+                    ubigeo = new Ubigeo { Departamento = dep, Provincia = prov, Distrito = dist };
+                    context.Set<Ubigeo>().Add(ubigeo);
+                    await context.SaveChangesAsync();
+                }
+                e.UbigeoId = ubigeo.Id;
             }
-            e.UbigeoId = ubigeo.Id;
+            else
+            {
+                e.UbigeoId = null;
+            }
 
             // 3. Resolve Genero (DefinicionDetalle)
-            var sex = string.IsNullOrEmpty(e.Sexo) ? "M" : e.Sexo.Trim();
-            var genero = await context.Set<DefinicionDetalle>().FirstOrDefaultAsync(dd =>
-                dd.DefinicionCodigo == "GENERO" && 
-                (dd.Codigo == sex || dd.Nombre.StartsWith(sex)));
-            if (genero == null)
+            if (!string.IsNullOrEmpty(e.Sexo))
             {
-                genero = await context.Set<DefinicionDetalle>().FirstOrDefaultAsync(dd => dd.DefinicionCodigo == "GENERO");
-            }
-            if (genero != null)
-            {
+                var sex = e.Sexo.Trim();
+                var genero = await context.Set<DefinicionDetalle>().FirstOrDefaultAsync(dd =>
+                    dd.DefinicionCodigo == "GENERO" && 
+                    (dd.Codigo == sex || dd.Nombre.StartsWith(sex)));
+                
+                if (genero == null)
+                {
+                    genero = new DefinicionDetalle { DefinicionCodigo = "GENERO", Codigo = sex.Substring(0, 1).ToUpper(), Nombre = sex };
+                    context.Set<DefinicionDetalle>().Add(genero);
+                    await context.SaveChangesAsync();
+                }
                 e.GeneroId = genero.Id;
                 e.GeneroDefinicionCodigo = "GENERO";
             }
+            else
+            {
+                e.GeneroId = null;
+            }
 
             // 4. Resolve EstadoCivil
-            var estCivil = string.IsNullOrEmpty(e.EstadoCivil) ? "SOLTERO" : e.EstadoCivil.Trim().ToUpper();
-            var ec = await context.Set<DefinicionDetalle>().FirstOrDefaultAsync(dd =>
-                dd.DefinicionCodigo == "ESTADO_CIVIL" && 
-                (dd.Codigo == estCivil || dd.Nombre.StartsWith(estCivil)));
-            if (ec == null)
+            if (!string.IsNullOrEmpty(e.EstadoCivil))
             {
-                ec = await context.Set<DefinicionDetalle>().FirstOrDefaultAsync(dd => dd.DefinicionCodigo == "ESTADO_CIVIL");
-            }
-            if (ec != null)
-            {
+                var estCivil = e.EstadoCivil.Trim().ToUpper();
+                var ec = await context.Set<DefinicionDetalle>().FirstOrDefaultAsync(dd =>
+                    dd.DefinicionCodigo == "ESTADO_CIVIL" && 
+                    (dd.Codigo == estCivil || dd.Nombre.StartsWith(estCivil)));
+                
+                if (ec == null)
+                {
+                    ec = new DefinicionDetalle { DefinicionCodigo = "ESTADO_CIVIL", Codigo = estCivil, Nombre = e.EstadoCivil.Trim() };
+                    context.Set<DefinicionDetalle>().Add(ec);
+                    await context.SaveChangesAsync();
+                }
                 e.EstadoCivilId = ec.Id;
                 e.EstadoCivilDefinicionCodigo = "ESTADO_CIVIL";
+            }
+            else
+            {
+                e.EstadoCivilId = null;
             }
 
             // 5. Default EstadoEmpleado if not set
             var estadoEmp = await context.Set<DefinicionDetalle>().FirstOrDefaultAsync(dd =>
                 dd.DefinicionCodigo == "ESTADO_EMPLEADO" && dd.Codigo == "ACTIVO");
+            if (estadoEmp == null)
+            {
+                estadoEmp = new DefinicionDetalle { DefinicionCodigo = "ESTADO_EMPLEADO", Codigo = "ACTIVO", Nombre = "Activo" };
+                context.Set<DefinicionDetalle>().Add(estadoEmp);
+                await context.SaveChangesAsync();
+            }
             if (estadoEmp != null)
             {
                 e.EstadoEmpleadoId = estadoEmp.Id;
@@ -131,6 +175,12 @@ namespace DNIContractApi.Services
             // 6. Default TipoContrato if not set
             var tipoContrato = await context.Set<DefinicionDetalle>().FirstOrDefaultAsync(dd =>
                 dd.DefinicionCodigo == "TIPO_CONTRATO" && dd.Codigo == "PLAZO_FIJO");
+            if (tipoContrato == null)
+            {
+                tipoContrato = new DefinicionDetalle { DefinicionCodigo = "TIPO_CONTRATO", Codigo = "PLAZO_FIJO", Nombre = "Plazo Fijo" };
+                context.Set<DefinicionDetalle>().Add(tipoContrato);
+                await context.SaveChangesAsync();
+            }
             if (tipoContrato != null)
             {
                 e.TipoContratoId = tipoContrato.Id;
@@ -191,7 +241,8 @@ namespace DNIContractApi.Services
                         NivelEducacionId = primaryDet.Id,
                         NivelEducacionDefinicionCodigo = "NIVEL_EDUCACION",
                         Institucion = e.PrimarySchool,
-                        Estado = "Concluido"
+                        Estado = "Concluido",
+                        FechaFin = int.TryParse(e.PrimaryYear, out var py) ? new DateTime(py, 12, 31) : null
                     });
                 }
             }
@@ -206,7 +257,8 @@ namespace DNIContractApi.Services
                         NivelEducacionId = secondaryDet.Id,
                         NivelEducacionDefinicionCodigo = "NIVEL_EDUCACION",
                         Institucion = e.SecondarySchool,
-                        Estado = "Concluido"
+                        Estado = "Concluido",
+                        FechaFin = int.TryParse(e.SecondaryYear, out var sy) ? new DateTime(sy, 12, 31) : null
                     });
                 }
             }
@@ -221,7 +273,8 @@ namespace DNIContractApi.Services
                         NivelEducacionId = higherDet.Id,
                         NivelEducacionDefinicionCodigo = "NIVEL_EDUCACION",
                         Institucion = e.HigherEducationInstitution,
-                        Estado = "Concluido"
+                        Estado = "Concluido",
+                        FechaFin = int.TryParse(e.HigherEducationYear, out var hy) ? new DateTime(hy, 12, 31) : null
                     });
                 }
             }

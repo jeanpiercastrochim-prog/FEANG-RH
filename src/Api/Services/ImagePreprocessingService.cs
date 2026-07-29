@@ -31,8 +31,8 @@ namespace DNIContractApi.Services
                 .AutoOrient()
                 .Resize(new ResizeOptions { Size = new Size(1000, 1000), Mode = ResizeMode.Max })
                 .Grayscale()
-                .Contrast(2.5f)    // Very high contrast to separate ink
-                .Brightness(1.3f)  // Push paper/shadows to pure white
+                .Contrast(1.5f)    // Moderado para no perder detalles sutiles
+                .Brightness(1.1f)  // Moderado
             );
 
             // 1. Convert brightness to alpha transparency
@@ -48,11 +48,11 @@ namespace DNIContractApi.Services
                         byte brightness = pixel.R;
                         byte alpha = (byte)Math.Max(0, 255 - brightness);
                         
-                        // Clean up noise: remove faint shadows, solidify strong ink
-                        if (alpha < 60) alpha = 0;
-                        else if (alpha > 180) alpha = 255;
+                        // Eliminar solo sombras muy claras del papel
+                        if (alpha < 40) alpha = 0;
+                        // Mantenemos la opacidad original para los trazos más claros
 
-                        pixel = new Rgba32(0, 0, 0, alpha); // Pure black ink with calculated transparency
+                        pixel = new Rgba32(0, 0, 0, alpha); // Tinta negra con transparencia natural
                     }
                 }
             });

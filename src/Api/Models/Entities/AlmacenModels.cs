@@ -137,8 +137,11 @@ namespace DNIContractApi.Models.Entities
         [StringLength(1000)]
         public string DescripcionCarga { get; set; } = string.Empty;
 
-        [StringLength(500)]
+        [MaxLength(200)]
         public string MotivoObservacion { get; set; } = string.Empty;
+
+        [MaxLength(255)]
+        public string? FirmaUrl { get; set; }
 
         public DateTime FechaMovimiento { get; set; } = DateTime.UtcNow;
     }
@@ -160,5 +163,45 @@ namespace DNIContractApi.Models.Entities
         public int NumeroNiveles { get; set; } = 3;
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    }
+
+    [Table("Almacen_Auditoria")]
+    public class AlmacenAuditoria
+    {
+        [Key]
+        public int Id { get; set; }
+
+        [Required]
+        [StringLength(50)]
+        public string Rack { get; set; } = string.Empty;
+
+        public DateTime FechaAuditoria { get; set; } = DateTime.UtcNow;
+
+        [Required]
+        [StringLength(100)]
+        public string Auditor { get; set; } = string.Empty;
+
+        public bool TieneDiscrepancias { get; set; }
+
+        public ICollection<AlmacenAuditoriaDetalle> Detalles { get; set; } = new List<AlmacenAuditoriaDetalle>();
+    }
+
+    [Table("Almacen_Auditoria_Detalle")]
+    public class AlmacenAuditoriaDetalle
+    {
+        [Key]
+        public int Id { get; set; }
+
+        public int AuditoriaId { get; set; }
+        [ForeignKey("AuditoriaId")]
+        public AlmacenAuditoria? Auditoria { get; set; }
+
+        [Required]
+        [StringLength(100)]
+        public string ProductoCodigo { get; set; } = string.Empty;
+
+        public int CantidadEsperada { get; set; }
+        public int CantidadEscaneada { get; set; }
+        public int Diferencia { get; set; } // Negativo: Falta, Positivo: Sobra
     }
 }

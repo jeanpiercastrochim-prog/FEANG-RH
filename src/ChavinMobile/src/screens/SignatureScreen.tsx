@@ -7,9 +7,10 @@ import SignatureScreenCanvas from 'react-native-signature-canvas';
 import axios from 'axios';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as ImagePicker from 'expo-image-picker';
+import * as Device from 'expo-device';
 import WebSignature from '../components/WebSignature';
 
-const API_URL = Platform.OS === 'web' ? 'http://localhost:5051/api' : 'http://10.0.2.2:5051/api';
+const API_URL = 'https://technical-latina-chastenedly.ngrok-free.dev/api';
 
 const AFPS = [
   { id: 1, name: 'AFP Integra' },
@@ -105,10 +106,21 @@ export default function SignatureScreen({ route, navigation }: any) {
         }
       }
 
+      const signatureMetadata = JSON.stringify({
+        osName: Device.osName,
+        osVersion: Device.osVersion,
+        brand: Device.brand,
+        modelName: Device.modelName,
+        isDevice: Device.isDevice,
+        signedAt: new Date().toISOString(),
+        biometricValidated: isBiometricValidated
+      });
+
       await axios.post(`${API_URL}/Process/submit-mobile`, {
         ...initialFormData,
         signatureBase64,
         isBiometricValidated,
+        SignatureMetadata: signatureMetadata,
         Telefono: extraData.Telefono,
         CorreoPersonal: extraData.CorreoPersonal,
         ContactoEmergencia: extraData.ContactoEmergencia,
@@ -255,7 +267,7 @@ export default function SignatureScreen({ route, navigation }: any) {
                   <Text style={styles.tipsTitle}>Recomendaciones para una firma perfecta:</Text>
                   <View style={styles.tipRow}><CheckCircle size={14} color="#10b981"/><Text style={styles.tipText}>Usa una hoja de papel 100% en blanco (sin líneas).</Text></View>
                   <View style={styles.tipRow}><CheckCircle size={14} color="#10b981"/><Text style={styles.tipText}>Escribe con lapicero de tinta oscura y gruesa.</Text></View>
-                  <View style={styles.tipRow}><CheckCircle size={14} color="#10b981"/><Text style={styles.tipText}>Toma la foto de cerca, evita sombras sobre el papel.</Text></View>
+                  <View style={styles.tipRow}><CheckCircle size={14} color="#10b981"/><Text style={styles.tipText}>ENCIENDE EL FLASH de tu cámara para que no haya sombras oscuras sobre el papel.</Text></View>
                   <View style={styles.tipRow}><CheckCircle size={14} color="#10b981"/><Text style={styles.tipText}>Usa la herramienta de recortar que aparecerá para dejar solo tu firma.</Text></View>
                 </View>
               </View>

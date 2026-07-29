@@ -2,6 +2,9 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import './global.css';
+import axios from 'axios';
+
+axios.defaults.headers.common['ngrok-skip-browser-warning'] = '69420';
 
 import LoginScreen from './src/screens/LoginScreen';
 import WelcomeScreen from './src/screens/WelcomeScreen';
@@ -25,6 +28,19 @@ import NewRequestScreen from './src/screens/NewRequestScreen';
 import RequestFormScreen from './src/screens/RequestFormScreen';
 import RequestDetailScreen from './src/screens/RequestDetailScreen';
 import DriverScreen from './src/screens/DriverScreen';
+import AlmacenScreen from './src/screens/AlmacenScreen';
+import AdminSelectionScreen from './src/screens/AdminSelectionScreen';
+import AdminRHScreen from './src/screens/AdminRHScreen';
+import AdminTransportScreen from './src/screens/AdminTransportScreen';
+import AdminAlmacenScreen from './src/screens/AdminAlmacenScreen';
+import AdminFeatureToggleScreen from './src/screens/AdminFeatureToggleScreen';
+
+// Almacén Móvil
+import MobileRecepcionScreen from './src/screens/MobileRecepcionScreen';
+import MobileDespachoScreen from './src/screens/MobileDespachoScreen';
+import MobileMapaScreen from './src/screens/MobileMapaScreen';
+import MobileTrasladoScreen from './src/screens/MobileTrasladoScreen';
+import MobileAuditoriaScreen from './src/screens/MobileAuditoriaScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -48,6 +64,19 @@ export default function App() {
           <Stack.Screen name="RequestForm" component={RequestFormScreen} />
           <Stack.Screen name="RequestDetail" component={RequestDetailScreen} />
           <Stack.Screen name="Driver" component={DriverScreen} />
+          <Stack.Screen name="Almacen" component={AlmacenScreen} />
+          <Stack.Screen name="AdminSelection" component={AdminSelectionScreen} />
+          <Stack.Screen name="AdminRH" component={AdminRHScreen} />
+          <Stack.Screen name="AdminTransporte" component={AdminTransportScreen} />
+          <Stack.Screen name="AdminAlmacen" component={AdminAlmacenScreen} />
+          <Stack.Screen name="AdminFeatureToggle" component={AdminFeatureToggleScreen} />
+          
+          {/* Almacén Móvil */}
+          <Stack.Screen name="MobileRecepcion" component={MobileRecepcionScreen} />
+          <Stack.Screen name="MobileDespacho" component={MobileDespachoScreen} />
+          <Stack.Screen name="MobileMapa" component={MobileMapaScreen} />
+          <Stack.Screen name="MobileTraslado" component={MobileTrasladoScreen} />
+          <Stack.Screen name="MobileAuditoria" component={MobileAuditoriaScreen} />
           
           {/* Onboarding Flow */}
           <Stack.Screen name="Welcome" component={WelcomeScreen} />

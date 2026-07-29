@@ -12,7 +12,7 @@ import { useFocusEffect } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
-const API_URL = Platform.OS === 'web' ? 'http://localhost:5051/api' : 'http://10.0.2.2:5051/api';
+const API_URL = 'https://technical-latina-chastenedly.ngrok-free.dev/api';
 
 export default function HomeScreen({ route, navigation }: any) {
   const [checkingContract, setCheckingContract] = React.useState(false);
@@ -21,6 +21,13 @@ export default function HomeScreen({ route, navigation }: any) {
   const [isPopupOpen, setIsPopupOpen] = React.useState(false);
   const [employeeDetails, setEmployeeDetails] = React.useState<any>(null);
   const [totalBoletas, setTotalBoletas] = React.useState(0);
+  const [features, setFeatures] = React.useState<any>({
+    feature_contratos: true,
+    feature_boletas: true,
+    feature_mensajes: true,
+    feature_vacaciones: true,
+    feature_capacitacion: true
+  });
 
   // Manejo de seguridad en caso de que no venga el empleado en los params
   let employeeName = route?.params?.employee?.fullName || 'Alonso';
@@ -83,6 +90,13 @@ export default function HomeScreen({ route, navigation }: any) {
         } catch (error) {
           console.error('Error fetching payslips for total:', error);
         }
+
+        try {
+          const res = await axios.get(`${API_URL}/MobileSettings/features`);
+          setFeatures(res.data);
+        } catch (error) {
+          console.error('Error fetching mobile features:', error);
+        }
       };
       fetchNotifications();
     }, [route?.params?.employee])
@@ -108,30 +122,29 @@ export default function HomeScreen({ route, navigation }: any) {
       try {
         const resEmp = await axios.get(`${API_URL}/Employee/by-dni/${employee.dni}`);
         const empData = resEmp.data;
-        if (empData.hasSignedContract) {
-           navigation.navigate('MyContract', { dni: employee.dni });
-           return;
-        } else {
-           navigation.navigate('DirectSignature', { employee: empData });
-           return;
+        
+        try {
+           const resLatest = await axios.get(`${API_URL}/Process/latest/${employee.dni}`);
+           const latest = resLatest.data;
+           
+           if (latest.status === 'Firmado') {
+              navigation.navigate('MyContract', { dni: employee.dni });
+           } else if (latest.status === 'Pendiente' || latest.status === 'Rechazado') {
+              navigation.navigate('PendingContract', { contractId: latest.id, employee: empData });
+           } else {
+              navigation.navigate('DirectSignature', { employee: empData });
+           }
+        } catch (e) {
+           // No processes found for this employee
+           if (empData.signatureImagePath) {
+              navigation.navigate('MyContract', { dni: employee.dni });
+           } else {
+              navigation.navigate('DirectSignature', { employee: empData });
+           }
         }
       } catch (err: any) {
         if (err.response?.status === 404) {
-          const [resFirmados, resPending] = await Promise.all([
-            axios.get(`${API_URL}/Process/firmados`),
-            axios.get(`${API_URL}/Process/pending`)
-          ]);
-          
-          const signedContract = resFirmados.data.find((c: any) => c.numeroDNI === employee?.dni);
-          const pendingContract = resPending.data.find((c: any) => c.numeroDNI === employee?.dni);
-          
-          if (signedContract) {
-            navigation.navigate('MyContract', { dni: employee?.dni });
-          } else if (pendingContract) {
-            navigation.navigate('PendingContract', { contractId: pendingContract.id, employee });
-          } else {
-            navigation.navigate('Welcome', { employee });
-          }
+          navigation.navigate('Welcome', { employee });
         } else {
           throw err;
         }
@@ -281,46 +294,57 @@ export default function HomeScreen({ route, navigation }: any) {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.gridContainer}>
-            {/* ROW 1 */}
-            <View style={styles.gridRow}>
-              <TouchableOpacity style={styles.gridCard} onPress={handleCheckContract} disabled={checkingContract}>
+          <View style={[styles.gridContainer, { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }]}>
+            
+            {features.feature_contratos && (
+              <TouchableOpacity style={[styles.gridCard, { marginBottom: 12 }]} onPress={handleCheckContract} disabled={checkingContract}>
                 <FileText color="#60a5fa" size={28} style={[styles.gridIcon, checkingContract && { opacity: 0.5 }]} />
                 <Text style={styles.gridTitle}>{checkingContract ? 'Verificando...' : 'Mi Contrato'}</Text>
                 <Text style={styles.gridSubtitle}>Consulta y descarga{'\n'}tu contrato laboral</Text>
                 <ChevronRight color="#64748b" size={16} style={styles.gridArrow} />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.gridCard} onPress={() => navigation.navigate('Payslips', { dni: route?.params?.employee?.dni || '' })}>
+            )}
+
+            {features.feature_boletas && (
+              <TouchableOpacity style={[styles.gridCard, { marginBottom: 12 }]} onPress={() => navigation.navigate('Payslips', { dni: route?.params?.employee?.dni || '' })}>
                 <Receipt color="#10b981" size={28} style={styles.gridIcon} />
                 <Text style={styles.gridTitle}>Mis Boletas</Text>
                 <Text style={styles.gridSubtitle}>Historial de boletas{'\n'}de pago</Text>
                 <ChevronRight color="#64748b" size={16} style={styles.gridArrow} />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.gridCard} onPress={() => navigation.navigate('Notifications', { employee: route?.params?.employee })}>
+            )}
+
+            {features.feature_mensajes && (
+              <TouchableOpacity style={[styles.gridCard, { marginBottom: 12 }]} onPress={() => navigation.navigate('Notifications', { employee: route?.params?.employee })}>
                 <MessageSquare color="#60a5fa" size={28} style={styles.gridIcon} />
                 <Text style={styles.gridTitle}>Mensajes</Text>
                 <Text style={styles.gridSubtitle}>Avisos y{'\n'}comunicados</Text>
                 <ChevronRight color="#64748b" size={16} style={styles.gridArrow} />
               </TouchableOpacity>
-            </View>
-
-            {/* ROW 2 */}
-            {isAdministrativo && (
-              <View style={styles.gridRow}>
-                <TouchableOpacity style={styles.gridCard} onPress={() => navigation.navigate('Vacations')}>
-                  <Calendar color="#60a5fa" size={28} style={styles.gridIcon} />
-                  <Text style={styles.gridTitle}>Vacaciones</Text>
-                  <Text style={styles.gridSubtitle}>Solicita y revisa{'\n'}tus días libres</Text>
-                  <ChevronRight color="#64748b" size={16} style={styles.gridArrow} />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.gridCard} onPress={() => navigation.navigate('Training', { employee: route?.params?.employee })}>
-                  <GraduationCap color="#14b8a6" size={28} style={styles.gridIcon} />
-                  <Text style={styles.gridTitle}>Capacitación</Text>
-                  <Text style={styles.gridSubtitle}>Manuales y{'\n'}cursos de seguridad</Text>
-                  <ChevronRight color="#64748b" size={16} style={styles.gridArrow} />
-                </TouchableOpacity>
-              </View>
             )}
+
+            {isAdministrativo && features.feature_vacaciones && (
+              <TouchableOpacity style={[styles.gridCard, { marginBottom: 12 }]} onPress={() => navigation.navigate('Vacations')}>
+                <Calendar color="#60a5fa" size={28} style={styles.gridIcon} />
+                <Text style={styles.gridTitle}>Vacaciones</Text>
+                <Text style={styles.gridSubtitle}>Solicita y revisa{'\n'}tus días libres</Text>
+                <ChevronRight color="#64748b" size={16} style={styles.gridArrow} />
+              </TouchableOpacity>
+            )}
+
+            {isAdministrativo && features.feature_capacitacion && (
+              <TouchableOpacity style={[styles.gridCard, { marginBottom: 12 }]} onPress={() => navigation.navigate('Training', { employee: route?.params?.employee })}>
+                <GraduationCap color="#14b8a6" size={28} style={styles.gridIcon} />
+                <Text style={styles.gridTitle}>Capacitación</Text>
+                <Text style={styles.gridSubtitle}>Manuales y{'\n'}cursos de seguridad</Text>
+                <ChevronRight color="#64748b" size={16} style={styles.gridArrow} />
+              </TouchableOpacity>
+            )}
+            
+            {/* Elementos vacíos fantasmas para mantener la grilla alineada si quedan menos de 3 en una fila */}
+            <View style={{ width: '31%' }} />
+            <View style={{ width: '31%' }} />
+            <View style={{ width: '31%' }} />
           </View>
 
           {/* COMUNICADOS IMPORTANTES */}

@@ -123,7 +123,7 @@ namespace DNIContractApi.Controllers
         [HttpGet("seed-roles")]
         public async Task<IActionResult> SeedRoles()
         {
-            // Seed Admin
+            // Seed Admin (Predeterminado)
             var adminDni = "00000000";
             var adminUser = await _context.Users.FirstOrDefaultAsync(u => u.Dni == adminDni);
             if (adminUser == null)
@@ -133,11 +133,40 @@ namespace DNIContractApi.Controllers
                 adminUser.PasswordHash = hash;
                 adminUser.PasswordSalt = salt;
                 _context.Users.Add(adminUser);
-                await _context.SaveChangesAsync();
             }
 
-            // Seed Transportista and Fix Drivers
-            var driverDnis = new[] { "11111111", "33333333", "44444444", "55555555" };
+            // Seed Admin (Jeanpier) - Acceso a todos los dashboards
+            var jeanpierDni = "76938037";
+            var jeanpierUser = await _context.Users.FirstOrDefaultAsync(u => u.Dni == jeanpierDni);
+            if (jeanpierUser == null)
+            {
+                jeanpierUser = new Models.Entities.User { Dni = jeanpierDni, Email = "jeanpier@chavin.com", Rol = "Admin" };
+                _context.Users.Add(jeanpierUser);
+            }
+            jeanpierUser.IsActive = true;
+            Services.DbHelper.CreatePasswordHash("jeanpier55", out var hashJeanpier, out var saltJeanpier);
+            jeanpierUser.PasswordHash = hashJeanpier;
+            jeanpierUser.PasswordSalt = saltJeanpier;
+
+            // Seed RH (App Móvil)
+            var rhDnis = new[] { "11111111", "22222222" };
+            foreach (var d in rhDnis)
+            {
+                var u = await _context.Users.FirstOrDefaultAsync(x => x.Dni == d);
+                if (u == null)
+                {
+                    u = new Models.Entities.User { Dni = d, Email = $"rh{d}@chavin.com", Rol = "Colaborador" };
+                    _context.Users.Add(u);
+                }
+                u.Rol = "Colaborador";
+                u.IsActive = true;
+                Services.DbHelper.CreatePasswordHash("rh123", out var hash, out var salt);
+                u.PasswordHash = hash;
+                u.PasswordSalt = salt;
+            }
+
+            // Seed Transportistas
+            var driverDnis = new[] { "33333333", "44444444" };
             foreach (var d in driverDnis)
             {
                 var u = await _context.Users.FirstOrDefaultAsync(x => x.Dni == d);
@@ -146,7 +175,6 @@ namespace DNIContractApi.Controllers
                     u = new Models.Entities.User { Dni = d, Email = $"driver{d}@chavin.com", Rol = "Transportista" };
                     _context.Users.Add(u);
                 }
-                
                 u.Rol = "Transportista";
                 u.IsActive = true;
                 Services.DbHelper.CreatePasswordHash("trans123", out var hash, out var salt);
@@ -154,22 +182,21 @@ namespace DNIContractApi.Controllers
                 u.PasswordSalt = salt;
             }
 
-            // Seed Almacenero
-            var almacenDnis = new[] { "66666666", "88888888" };
+            // Seed Almaceneros
+            var almacenDnis = new[] { "55555555", "66666666" };
             foreach (var a in almacenDnis)
             {
-                var almacenUser = await _context.Users.FirstOrDefaultAsync(u => u.Dni == a);
-                if (almacenUser == null)
+                var u = await _context.Users.FirstOrDefaultAsync(x => x.Dni == a);
+                if (u == null)
                 {
-                    almacenUser = new Models.Entities.User { Dni = a, Email = $"almacen{a}@chavin.com", Rol = "Almacenero" };
-                    _context.Users.Add(almacenUser);
+                    u = new Models.Entities.User { Dni = a, Email = $"almacen{a}@chavin.com", Rol = "Almacenero" };
+                    _context.Users.Add(u);
                 }
-
-                almacenUser.Rol = "Almacenero";
-                almacenUser.IsActive = true;
+                u.Rol = "Almacenero";
+                u.IsActive = true;
                 Services.DbHelper.CreatePasswordHash("almacen123", out var hash, out var salt);
-                almacenUser.PasswordHash = hash;
-                almacenUser.PasswordSalt = salt;
+                u.PasswordHash = hash;
+                u.PasswordSalt = salt;
             }
 
             await _context.SaveChangesAsync();

@@ -34,6 +34,8 @@ namespace DNIContractApi.Data
         public DbSet<AlmacenProducto> AlmacenProductos { get; set; }
         public DbSet<AlmacenInventario> AlmacenInventarios { get; set; }
         public DbSet<AlmacenMovimiento> AlmacenMovimientos { get; set; }
+        public DbSet<AlmacenAuditoria> AlmacenAuditorias { get; set; }
+        public DbSet<AlmacenAuditoriaDetalle> AlmacenAuditoriaDetalles { get; set; }
         public DbSet<AlmacenRack> AlmacenRacks { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)

@@ -370,10 +370,19 @@ if (app.Environment.IsDevelopment())
 {
 }
 
-app.UseStaticFiles();
+var provider = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
+provider.Mappings[".avif"] = "image/avif";
+provider.Mappings[".webp"] = "image/webp";
+provider.Mappings[".heic"] = "image/heic";
+provider.Mappings[".heif"] = "image/heif";
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    ContentTypeProvider = provider
+});
 app.UseRouting();
 app.UseCors("AllowAll");
 app.UseAuthorization();
 app.MapControllers();
 app.MapHub<DNIContractApi.Hubs.TrackingHub>("/trackingHub");
-app.Run("http://localhost:5051");
+app.Run("http://0.0.0.0:5051");

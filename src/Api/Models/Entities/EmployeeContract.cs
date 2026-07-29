@@ -17,6 +17,9 @@ namespace DNIContractApi.Models.Entities
 
         [Column("Estado")]
         public string Status { get; set; } = "Pendiente";
+        public string? RejectionReason { get; set; }
+        public string? SignatureMetadata { get; set; }
+        public bool BiometricValidation { get; set; } = false;
         public DateTime? SignedAt { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }

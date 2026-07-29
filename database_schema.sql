@@ -1,4 +1,4 @@
-IF OBJECT_ID(N'[__EFMigrationsHistory]') IS NULL
+﻿IF OBJECT_ID(N'[__EFMigrationsHistory]') IS NULL
 BEGIN
     CREATE TABLE [__EFMigrationsHistory] (
         [MigrationId] nvarchar(150) NOT NULL,
@@ -515,25 +515,32 @@ GO
 BEGIN TRANSACTION;
 GO
 
-ALTER TABLE [Almacen_Movimiento] ADD [Peso] decimal(18,2) NULL;
-GO
 ALTER TABLE [Almacen_Movimiento] ADD [AreaSolicitante] nvarchar(100) NOT NULL DEFAULT N'';
 GO
+
 ALTER TABLE [Almacen_Movimiento] ADD [CargoSolicitante] nvarchar(100) NOT NULL DEFAULT N'';
 GO
-ALTER TABLE [Almacen_Movimiento] ADD [VehiculoAsignado] nvarchar(50) NOT NULL DEFAULT N'';
-GO
-ALTER TABLE [Almacen_Movimiento] ADD [Turno] nvarchar(50) NOT NULL DEFAULT N'';
-GO
-ALTER TABLE [Almacen_Movimiento] ADD [Planta] nvarchar(100) NOT NULL DEFAULT N'';
-GO
-ALTER TABLE [Almacen_Movimiento] ADD [EquipoLinea] nvarchar(100) NOT NULL DEFAULT N'';
-GO
+
 ALTER TABLE [Almacen_Movimiento] ADD [DescripcionCarga] nvarchar(1000) NOT NULL DEFAULT N'';
 GO
 
+ALTER TABLE [Almacen_Movimiento] ADD [EquipoLinea] nvarchar(100) NOT NULL DEFAULT N'';
+GO
+
+ALTER TABLE [Almacen_Movimiento] ADD [Peso] decimal(18,2) NULL;
+GO
+
+ALTER TABLE [Almacen_Movimiento] ADD [Planta] nvarchar(100) NOT NULL DEFAULT N'';
+GO
+
+ALTER TABLE [Almacen_Movimiento] ADD [Turno] nvarchar(50) NOT NULL DEFAULT N'';
+GO
+
+ALTER TABLE [Almacen_Movimiento] ADD [VehiculoAsignado] nvarchar(50) NOT NULL DEFAULT N'';
+GO
+
 INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-VALUES (N'20260726190929_AlmacenCamposTrazabilidad', N'8.0.0');
+VALUES (N'20260726190947_AlmacenCamposTrazabilidad', N'8.0.0');
 GO
 
 COMMIT;
@@ -560,3 +567,17 @@ GO
 
 COMMIT;
 GO
+
+BEGIN TRANSACTION;
+GO
+
+ALTER TABLE [Almacen_Producto] ADD [ImagenUrl] nvarchar(500) NULL;
+GO
+
+INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+VALUES (N'20260728000205_AddProductoImagen', N'8.0.0');
+GO
+
+COMMIT;
+GO
+

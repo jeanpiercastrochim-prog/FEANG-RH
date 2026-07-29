@@ -19,51 +19,51 @@ namespace DNIContractApi.Models.Entities
         
         public DateTime FechaNacimiento { get; set; } = DateTime.UtcNow.AddYears(-25);
 
-        public int GeneroId { get; set; }
+        public int? GeneroId { get; set; }
         [DatabaseGenerated(DatabaseGeneratedOption.Computed)]
-        public string GeneroDefinicionCodigo { get; set; } = "GENERO";
+        public string? GeneroDefinicionCodigo { get; set; } = "GENERO";
         public DefinicionDetalle? Genero { get; set; }
 
-        public int EstadoCivilId { get; set; }
+        public int? EstadoCivilId { get; set; }
         [DatabaseGenerated(DatabaseGeneratedOption.Computed)]
-        public string EstadoCivilDefinicionCodigo { get; set; } = "ESTADO_CIVIL";
+        public string? EstadoCivilDefinicionCodigo { get; set; } = "ESTADO_CIVIL";
         public DefinicionDetalle? EstadoCivilDetalle { get; set; }
 
         public string Direccion { get; set; } = string.Empty;
         
-        public int UbigeoId { get; set; }
+        public int? UbigeoId { get; set; }
         public Ubigeo? Ubigeo { get; set; }
 
         public string? Telefono { get; set; }
         public string? CorreoPersonal { get; set; }
         public string? CorreoCorporativo { get; set; }
 
-        public int CargoId { get; set; }
+        public int? CargoId { get; set; }
         public Cargo? Cargo { get; set; }
 
         public decimal BaseSalary { get; set; }
 
-        public int EstadoEmpleadoId { get; set; }
+        public int? EstadoEmpleadoId { get; set; }
         [DatabaseGenerated(DatabaseGeneratedOption.Computed)]
-        public string EstadoEmpleadoDefinicionCodigo { get; set; } = "ESTADO_EMPLEADO";
+        public string? EstadoEmpleadoDefinicionCodigo { get; set; } = "ESTADO_EMPLEADO";
         public DefinicionDetalle? EstadoEmpleado { get; set; }
 
         public DateTime FechaIngreso { get; set; } = DateTime.UtcNow;
         public DateTime? FechaCese { get; set; }
 
-        public int TipoContratoId { get; set; }
+        public int? TipoContratoId { get; set; }
         [DatabaseGenerated(DatabaseGeneratedOption.Computed)]
-        public string TipoContratoDefinicionCodigo { get; set; } = "TIPO_CONTRATO";
+        public string? TipoContratoDefinicionCodigo { get; set; } = "TIPO_CONTRATO";
         public DefinicionDetalle? TipoContrato { get; set; }
 
         public int? BancoId { get; set; }
         [DatabaseGenerated(DatabaseGeneratedOption.Computed)]
-        public string BancoDefinicionCodigo { get; set; } = "BANCO";
+        public string? BancoDefinicionCodigo { get; set; } = "BANCO";
         public DefinicionDetalle? Banco { get; set; }
 
         public int? TipoCuentaBancariaId { get; set; }
         [DatabaseGenerated(DatabaseGeneratedOption.Computed)]
-        public string TipoCuentaBancariaDefinicionCodigo { get; set; } = "TIPO_CUENTA_BANCARIA";
+        public string? TipoCuentaBancariaDefinicionCodigo { get; set; } = "TIPO_CUENTA_BANCARIA";
         public DefinicionDetalle? TipoCuentaBancaria { get; set; }
 
         public string? NumeroCuenta { get; set; }
@@ -71,7 +71,7 @@ namespace DNIContractApi.Models.Entities
 
         public int? AFPId { get; set; }
         [DatabaseGenerated(DatabaseGeneratedOption.Computed)]
-        public string AFPDefinicionCodigo { get; set; } = "AFP";
+        public string? AFPDefinicionCodigo { get; set; } = "AFP";
         public DefinicionDetalle? AFP { get; set; }
 
         public string? CodigoAFP { get; set; }
@@ -86,7 +86,7 @@ namespace DNIContractApi.Models.Entities
         public int? CreatedBy { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public int? ModifiedBy { get; set; }
-        public DateTime? ModifiedAt { get; set; }
+        public string? SignatureMetadata { get; set; }
 
         // RELATIONS
         public ICollection<EmployeeEducation> Educations { get; set; } = new List<EmployeeEducation>();
@@ -126,15 +126,24 @@ namespace DNIContractApi.Models.Entities
         public string? PrimarySchool { get; set; }
 
         [NotMapped]
+        public string? PrimaryYear { get; set; }
+
+        [NotMapped]
         public bool HasSecondary { get; set; }
 
         [NotMapped]
         public string? SecondarySchool { get; set; }
 
         [NotMapped]
+        public string? SecondaryYear { get; set; }
+
+        [NotMapped]
         public bool HasHigherEducation { get; set; }
 
         [NotMapped]
         public string? HigherEducationInstitution { get; set; }
+
+        [NotMapped]
+        public string? HigherEducationYear { get; set; }
     }
 }

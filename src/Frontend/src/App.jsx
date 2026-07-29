@@ -13,11 +13,12 @@ import Maestros from './components/Maestros';
 import MisSolicitudes from './components/MisSolicitudes';
 import DashboardTransportista from './components/DashboardTransportista';
 import DashboardAlmacen from './components/DashboardAlmacen';
-import { Briefcase, MapPin, X } from 'lucide-react';
+import { Briefcase, MapPin, X, Truck, Package } from 'lucide-react';
 import './index.css';
 
 function App() {
   const [showRoleModal, setShowRoleModal] = useState(false);
+  const [selectedDashboard, setSelectedDashboard] = useState(null);
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem('userSession');
     return saved ? JSON.parse(saved) : null;
@@ -56,11 +57,61 @@ function App() {
     );
   }
 
-  if (user.rol === 'Transportista') {
+  if (user.rol === 'Admin' && !selectedDashboard) {
+    return (
+      <div className="fullscreen-modal-overlay animate-fade">
+        <div className="fullscreen-modal-content" style={{ maxWidth: '900px' }}>
+          
+          <div className="modal-header-fancy">
+            <h2>Bienvenido, Administrador General</h2>
+            <p>Seleccione el Dashboard al que desea ingresar</p>
+          </div>
+
+          <div className="role-cards-container" style={{ gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
+            
+            <div className="role-card-fancy rh" onClick={() => setSelectedDashboard('RH')}>
+              <div className="role-icon-wrapper"><Briefcase size={32} /></div>
+              <h3>Recursos Humanos</h3>
+              <p>Gestión de personal, contratos y asistencia.</p>
+              <div className="role-card-arrow">→</div>
+            </div>
+
+            <div className="role-card-fancy campo" onClick={() => setSelectedDashboard('Transportista')}>
+              <div className="role-icon-wrapper"><Truck size={32} /></div>
+              <h3>Transporte</h3>
+              <p>Monitoreo de flota, rutas y alertas en tiempo real.</p>
+              <div className="role-card-arrow">→</div>
+            </div>
+
+            <div className="role-card-fancy" style={{ borderColor: 'rgba(139, 92, 246, 0.3)', background: 'linear-gradient(145deg, rgba(139, 92, 246, 0.05) 0%, rgba(15, 23, 42, 0.8) 100%)' }} onClick={() => setSelectedDashboard('Almacenero')}>
+              <div className="role-icon-wrapper" style={{ color: '#8b5cf6', background: 'rgba(139, 92, 246, 0.1)' }}><Package size={32} /></div>
+              <h3 style={{ color: '#8b5cf6' }}>Almacén</h3>
+              <p>Gestión de inventario, ingresos y despachos.</p>
+              <div className="role-card-arrow">→</div>
+            </div>
+
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '40px' }}>
+            <button 
+              onClick={handleLogout}
+              style={{ padding: '12px 24px', background: 'transparent', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold' }}
+            >
+              Cerrar Sesión
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const activeRole = user.rol === 'Admin' && selectedDashboard ? selectedDashboard : user.rol;
+
+  if (activeRole === 'Transportista') {
     return <DashboardTransportista user={user} onLogout={handleLogout} />;
   }
 
-  if (user.rol === 'Almacenero') {
+  if (activeRole === 'Almacenero') {
     return <DashboardAlmacen user={user} onLogout={handleLogout} />;
   }
 

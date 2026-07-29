@@ -129,13 +129,17 @@ namespace DNIContractApi.Migrations
                     b.Property<DateTime>("FechaMovimiento")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("FirmaUrl")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
                     b.Property<int>("InventarioId")
                         .HasColumnType("int");
 
                     b.Property<string>("MotivoObservacion")
                         .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<decimal?>("Peso")
                         .HasColumnType("decimal(18,2)");
@@ -491,7 +495,6 @@ namespace DNIContractApi.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("AFPDefinicionCodigo")
-                        .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("nvarchar(450)");
 
@@ -507,7 +510,6 @@ namespace DNIContractApi.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("BancoDefinicionCodigo")
-                        .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("nvarchar(450)");
 
@@ -520,7 +522,7 @@ namespace DNIContractApi.Migrations
                     b.Property<string>("CCI")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int>("CargoId")
+                    b.Property<int?>("CargoId")
                         .HasColumnType("int");
 
                     b.Property<string>("CodigoAFP")
@@ -550,19 +552,17 @@ namespace DNIContractApi.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("EstadoCivilDefinicionCodigo")
-                        .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<int>("EstadoCivilId")
+                    b.Property<int?>("EstadoCivilId")
                         .HasColumnType("int");
 
                     b.Property<string>("EstadoEmpleadoDefinicionCodigo")
-                        .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<int>("EstadoEmpleadoId")
+                    b.Property<int?>("EstadoEmpleadoId")
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("FechaCese")
@@ -575,18 +575,14 @@ namespace DNIContractApi.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("GeneroDefinicionCodigo")
-                        .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<int>("GeneroId")
+                    b.Property<int?>("GeneroId")
                         .HasColumnType("int");
 
                     b.Property<bool>("HasBiometrics")
                         .HasColumnType("bit");
-
-                    b.Property<DateTime?>("ModifiedAt")
-                        .HasColumnType("datetime2");
 
                     b.Property<int?>("ModifiedBy")
                         .HasColumnType("int");
@@ -607,6 +603,9 @@ namespace DNIContractApi.Migrations
                     b.Property<string>("SignatureImagePath")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("SignatureMetadata")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Telefono")
                         .HasColumnType("nvarchar(max)");
 
@@ -614,22 +613,20 @@ namespace DNIContractApi.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("TipoContratoDefinicionCodigo")
-                        .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<int>("TipoContratoId")
+                    b.Property<int?>("TipoContratoId")
                         .HasColumnType("int");
 
                     b.Property<string>("TipoCuentaBancariaDefinicionCodigo")
-                        .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<int?>("TipoCuentaBancariaId")
                         .HasColumnType("int");
 
-                    b.Property<int>("UbigeoId")
+                    b.Property<int?>("UbigeoId")
                         .HasColumnType("int");
 
                     b.Property<int?>("UserId")
@@ -671,6 +668,9 @@ namespace DNIContractApi.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool>("BiometricValidation")
+                        .HasColumnType("bit");
+
                     b.Property<int>("ContractId")
                         .HasColumnType("int");
 
@@ -679,6 +679,12 @@ namespace DNIContractApi.Migrations
 
                     b.Property<int>("EmployeeId")
                         .HasColumnType("int");
+
+                    b.Property<string>("RejectionReason")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SignatureMetadata")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("SignedAt")
                         .HasColumnType("datetime2");
@@ -1161,14 +1167,12 @@ namespace DNIContractApi.Migrations
                     b.HasOne("DNIContractApi.Models.Entities.Cargo", "Cargo")
                         .WithMany()
                         .HasForeignKey("CargoId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("DNIContractApi.Models.Entities.Ubigeo", "Ubigeo")
                         .WithMany()
                         .HasForeignKey("UbigeoId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("DNIContractApi.Models.Entities.User", "User")
                         .WithMany()
@@ -1191,29 +1195,25 @@ namespace DNIContractApi.Migrations
                         .WithMany()
                         .HasForeignKey("EstadoCivilDefinicionCodigo", "EstadoCivilId")
                         .HasPrincipalKey("DefinicionCodigo", "Id")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("DNIContractApi.Models.Entities.DefinicionDetalle", "EstadoEmpleado")
                         .WithMany()
                         .HasForeignKey("EstadoEmpleadoDefinicionCodigo", "EstadoEmpleadoId")
                         .HasPrincipalKey("DefinicionCodigo", "Id")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("DNIContractApi.Models.Entities.DefinicionDetalle", "Genero")
                         .WithMany()
                         .HasForeignKey("GeneroDefinicionCodigo", "GeneroId")
                         .HasPrincipalKey("DefinicionCodigo", "Id")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("DNIContractApi.Models.Entities.DefinicionDetalle", "TipoContrato")
                         .WithMany()
                         .HasForeignKey("TipoContratoDefinicionCodigo", "TipoContratoId")
                         .HasPrincipalKey("DefinicionCodigo", "Id")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("DNIContractApi.Models.Entities.DefinicionDetalle", "TipoCuentaBancaria")
                         .WithMany()

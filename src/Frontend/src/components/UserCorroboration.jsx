@@ -207,18 +207,34 @@ const ucStyles = `
 `;
 
 // Field fuera del componente principal para evitar re-mount en cada render
-const Field = ({ label, field, span, isDni = false, autoComplete = 'off', data, onDataChange }) => (
+const Field = ({ label, field, span, isDni = false, lettersOnly = false, options = null, autoComplete = 'off', data, onDataChange }) => (
   <div className={`uc-field${span ? ` uc-span-${span}` : ''}`}>
     <label className="uc-label">{label}</label>
     <div className="uc-input-wrap">
-      <input
-        type="text"
-        autoComplete={autoComplete}
-        className={`uc-input${isDni ? ' uc-input-dni' : ''}`}
-        value={data[field] || ''}
-        onChange={e => onDataChange(field, e.target.value)}
-        placeholder={`Ingrese ${label.toLowerCase()}`}
-      />
+      {options ? (
+        <select
+          className="uc-input"
+          value={data[field] || ''}
+          onChange={e => onDataChange(field, e.target.value)}
+          style={{ cursor: 'pointer', appearance: 'none' }}
+        >
+          <option value="" disabled>Seleccione una opción</option>
+          {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+        </select>
+      ) : (
+        <input
+          type="text"
+          autoComplete={autoComplete}
+          className={`uc-input${isDni ? ' uc-input-dni' : ''}`}
+          value={data[field] || ''}
+          onChange={e => {
+            let val = e.target.value;
+            if (lettersOnly) val = val.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
+            onDataChange(field, val);
+          }}
+          placeholder={`Ingrese ${label.toLowerCase()}`}
+        />
+      )}
     </div>
   </div>
 );
@@ -271,14 +287,15 @@ export default function UserCorroboration({ data, onDataChange, onConfirm }) {
             <div className="uc-section-icon" style={{ background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.2)' }}>
               <User size={20} />
             </div>
-            <h2 className="uc-section-title">Datos Personales</h2>
-            <span className="uc-section-count">4 campos</span>
+            <h2 className="uc-section-title">Datos Personales y Laborales</h2>
+            <span className="uc-section-count">5 campos</span>
           </div>
-          <div className="uc-grid uc-grid-4">
-            <Field label="Nombres"           field="nombres"          data={data} onDataChange={onDataChange} />
-            <Field label="Apellido Paterno"  field="apellidoPaterno"  data={data} onDataChange={onDataChange} />
-            <Field label="Apellido Materno"  field="apellidoMaterno"  data={data} onDataChange={onDataChange} />
+          <div className="uc-grid uc-grid-3">
+            <Field label="Nombres"           field="nombres"          lettersOnly data={data} onDataChange={onDataChange} />
+            <Field label="Apellido Paterno"  field="apellidoPaterno"  lettersOnly data={data} onDataChange={onDataChange} />
+            <Field label="Apellido Materno"  field="apellidoMaterno"  lettersOnly data={data} onDataChange={onDataChange} />
             <Field label="Fecha Nacimiento"  field="fechaNacimiento"  data={data} onDataChange={onDataChange} />
+            <Field label="Sistema de Pensión" field="sistemaPensionario" options={["ONP", "AFP Integra", "AFP Prima", "AFP Profuturo", "AFP Habitat"]} data={data} onDataChange={onDataChange} />
           </div>
         </div>
 
@@ -323,7 +340,12 @@ export default function UserCorroboration({ data, onDataChange, onConfirm }) {
             <Edit3 size={14} color="rgba(255,255,255,0.35)" />
             Puedes editar cualquier campo antes de confirmar
           </div>
-          <button className="uc-confirm-btn" onClick={onConfirm}>
+          <button 
+            className="uc-confirm-btn" 
+            onClick={onConfirm} 
+            disabled={!data.sistemaPensionario}
+            style={{ opacity: !data.sistemaPensionario ? 0.5 : 1, cursor: !data.sistemaPensionario ? 'not-allowed' : 'pointer' }}
+          >
             Confirmar y Continuar
             <ArrowRight size={18} />
           </button>

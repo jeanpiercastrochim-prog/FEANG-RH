@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Clock, ArrowLeft } from 'lucide-react-native';
 import axios from 'axios';
 
-const API_URL = Platform.OS === 'web' ? 'http://localhost:5051/api' : 'http://10.0.2.2:5051/api';
+const API_URL = 'https://technical-latina-chastenedly.ngrok-free.dev/api';
 
 export default function PendingContractScreen({ route, navigation }: any) {
   const { contractId, employee } = route.params;
@@ -31,13 +31,37 @@ export default function PendingContractScreen({ route, navigation }: any) {
 
       {data ? (
         <ScrollView contentContainerStyle={styles.content}>
-           <View style={styles.statusCard}>
-             <Clock color="#f59e0b" size={56} />
-             <Text style={styles.statusTitle}>Validación Pendiente</Text>
-             <Text style={styles.statusDesc}>
-               Tus datos y fotos fueron enviados exitosamente. Recursos Humanos está revisando la información para validar tu identidad y generar tu contrato.
-             </Text>
-           </View>
+           {data.status === 'Rechazado' ? (
+             <View style={[styles.statusCard, { borderColor: 'rgba(239, 68, 68, 0.3)' }]}>
+               <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(239,68,68,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontSize: 32 }}>❌</Text>
+               </View>
+               <Text style={[styles.statusTitle, { color: '#ef4444' }]}>Solicitud Rechazada</Text>
+               <Text style={styles.statusDesc}>
+                 Recursos Humanos ha devuelto tu solicitud para corrección por el siguiente motivo:
+               </Text>
+               <View style={{ backgroundColor: 'rgba(239,68,68,0.1)', padding: 16, borderRadius: 12, marginTop: 16, width: '100%', borderWidth: 1, borderColor: 'rgba(239,68,68,0.3)' }}>
+                 <Text style={{ color: '#fca5a5', fontSize: 15, textAlign: 'center', fontStyle: 'italic', fontWeight: '500' }}>
+                   "{data.rejectionReason}"
+                 </Text>
+               </View>
+               
+               <TouchableOpacity 
+                 style={{ backgroundColor: '#ef4444', padding: 16, borderRadius: 12, marginTop: 24, width: '100%', alignItems: 'center' }}
+                 onPress={() => navigation.navigate('DirectSignature', { employee })}
+               >
+                 <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Corregir Datos y Volver a Enviar</Text>
+               </TouchableOpacity>
+             </View>
+           ) : (
+             <View style={styles.statusCard}>
+               <Clock color="#f59e0b" size={56} />
+               <Text style={styles.statusTitle}>Validación Pendiente</Text>
+               <Text style={styles.statusDesc}>
+                 Tus datos y fotos fueron enviados exitosamente. Recursos Humanos está revisando la información para validar tu identidad y generar tu contrato.
+               </Text>
+             </View>
+           )}
 
            <Text style={styles.sectionTitle}>Datos Enviados a RRHH</Text>
            <View style={styles.dataCard}>

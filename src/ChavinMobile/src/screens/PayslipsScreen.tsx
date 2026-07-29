@@ -5,11 +5,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import axios from 'axios';
 import { 
   Download, ArrowLeft, FileText, Filter, Calendar, TrendingUp, ChevronRight,
-  Home, Receipt, ScanLine, ClipboardCheck, User, CalendarDays
+  Home, Receipt, ScanLine, ClipboardCheck, User, CalendarDays, Clock
 } from 'lucide-react-native';
 
 const { width } = Dimensions.get('window');
-const API_URL = Platform.OS === 'web' ? 'http://localhost:5051/api' : 'http://10.0.2.2:5051/api';
+const API_URL = Platform.OS === 'web' ? 'https://technical-latina-chastenedly.ngrok-free.dev/api' : 'https://technical-latina-chastenedly.ngrok-free.dev/api';
 // Base URL para archivos estáticos (quitando el /api del final)
 const BASE_URL = API_URL.replace('/api', '');
 
@@ -123,6 +123,18 @@ export default function PayslipsScreen({ route, navigation }: any) {
     </TouchableOpacity>
   );
 
+  const calculateDaysLeft = () => {
+    const today = new Date();
+    const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    const diffTime = Math.abs(lastDayOfMonth.getTime() - today.getTime());
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
+
+  const getCurrentMonthName = () => {
+    const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    return months[new Date().getMonth()];
+  };
+
   return (
     <LinearGradient 
       colors={['#051c4a', '#020b1f']} 
@@ -145,6 +157,25 @@ export default function PayslipsScreen({ route, navigation }: any) {
             <Filter color="#3b82f6" size={18} style={{ marginRight: 6 }} />
             <Text style={styles.filterText}>Filtrar</Text>
           </TouchableOpacity>
+        </View>
+
+        {/* PRÓXIMA BOLETA CARD */}
+        <View style={{ paddingHorizontal: 20, marginBottom: 0 }}>
+          <LinearGradient colors={['rgba(16, 185, 129, 0.4)', 'rgba(16, 185, 129, 0.1)']} style={[styles.summaryCard, { borderColor: 'rgba(16, 185, 129, 0.2)', marginBottom: 16 }]}>
+            <View style={styles.summaryLeft}>
+              <View style={[styles.summaryIconBox, { backgroundColor: '#10b981' }]}>
+                <Calendar color="#ffffff" size={24} />
+              </View>
+              <View>
+                <Text style={styles.summaryTitle}>Próxima Boleta</Text>
+                <Text style={styles.summaryLabel}>Mes de {getCurrentMonthName()}</Text>
+                <Text style={[styles.summaryAmount, { color: '#34d399', fontSize: 18, marginTop: 2 }]}>Faltan {calculateDaysLeft()} días</Text>
+              </View>
+            </View>
+            <View style={styles.chartMockup}>
+              <Clock color="#10b981" size={40} style={{ opacity: 0.8 }} />
+            </View>
+          </LinearGradient>
         </View>
 
         {/* MAIN CARD (Resumen Anual) */}

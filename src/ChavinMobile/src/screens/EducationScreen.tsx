@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import axios from 'axios';
 import { CheckCircle, Info, GraduationCap } from 'lucide-react-native';
 
-const API_URL = Platform.OS === 'web' ? 'http://localhost:5051/api' : 'http://10.0.2.2:5051/api';
+const API_URL = Platform.OS === 'web' ? 'https://technical-latina-chastenedly.ngrok-free.dev/api' : 'https://technical-latina-chastenedly.ngrok-free.dev/api';
 
 export default function EducationScreen({ route, navigation }: any) {
   const { formData, employee } = route.params || {};

@@ -46,7 +46,7 @@ export default function DriverScreen({ navigation, route }: any) {
 
   useEffect(() => {
     const fetchAssignment = () => {
-      const url = Platform.OS === 'web' ? `http://localhost:5051/api/tracking/assignment/${unidadPlaca}` : `http://10.0.2.2:5051/api/tracking/assignment/${unidadPlaca}`;
+      const url = Platform.OS === 'web' ? `https://technical-latina-chastenedly.ngrok-free.dev/api/tracking/assignment/${unidadPlaca}` : `https://technical-latina-chastenedly.ngrok-free.dev/api/tracking/assignment/${unidadPlaca}`;
       fetch(url)
         .then(res => res.ok ? res.json() : null)
         .then(data => setAssignment(data))
@@ -114,7 +114,7 @@ export default function DriverScreen({ navigation, route }: any) {
         bateria: 95
       };
 
-      const trackingUrl = Platform.OS === 'web' ? 'http://localhost:5051/api/tracking/location' : 'http://10.0.2.2:5051/api/tracking/location';
+      const trackingUrl = Platform.OS === 'web' ? 'https://technical-latina-chastenedly.ngrok-free.dev/api/tracking/location' : 'https://technical-latina-chastenedly.ngrok-free.dev/api/tracking/location';
       fetch(trackingUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -124,7 +124,7 @@ export default function DriverScreen({ navigation, route }: any) {
         if (res.ok) {
           setOfflineQueue(prev => {
             if (prev.length > 0) {
-              const batchUrl = Platform.OS === 'web' ? 'http://localhost:5051/api/tracking/location/batch' : 'http://10.0.2.2:5051/api/tracking/location/batch';
+              const batchUrl = Platform.OS === 'web' ? 'https://technical-latina-chastenedly.ngrok-free.dev/api/tracking/location/batch' : 'https://technical-latina-chastenedly.ngrok-free.dev/api/tracking/location/batch';
               fetch(batchUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(prev) })
                 .catch(err => console.log('Error batch offline', err));
               return [];
@@ -212,7 +212,7 @@ export default function DriverScreen({ navigation, route }: any) {
        }
     }
 
-    const apiBase = Platform.OS === 'web' ? 'http://localhost:5051' : 'http://10.0.2.2:5051';
+    const apiBase = Platform.OS === 'web' ? 'https://technical-latina-chastenedly.ngrok-free.dev' : 'https://technical-latina-chastenedly.ngrok-free.dev';
     try {
        const response = await fetch(`${apiBase}/api/tracking/sos`, {
          method: 'POST',
@@ -256,7 +256,7 @@ export default function DriverScreen({ navigation, route }: any) {
     });
 
     if (!result.canceled && result.assets && result.assets[0].base64) {
-      const url = Platform.OS === 'web' ? 'http://localhost:5051/api/tracking/incident' : 'http://10.0.2.2:5051/api/tracking/incident';
+      const url = Platform.OS === 'web' ? 'https://technical-latina-chastenedly.ngrok-free.dev/api/tracking/incident' : 'https://technical-latina-chastenedly.ngrok-free.dev/api/tracking/incident';
       fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -400,7 +400,7 @@ export default function DriverScreen({ navigation, route }: any) {
                     const newTripState = tripState === 'active' ? 'paused' : 'active';
                     setTripState(newTripState);
                     const actionText = newTripState === 'paused' ? 'El conductor ha pausado el viaje (Descanso)' : 'El conductor ha reanudado el viaje';
-                    const url = Platform.OS === 'web' ? 'http://localhost:5051/api/tracking/incident' : 'http://10.0.2.2:5051/api/tracking/incident';
+                    const url = Platform.OS === 'web' ? 'https://technical-latina-chastenedly.ngrok-free.dev/api/tracking/incident' : 'https://technical-latina-chastenedly.ngrok-free.dev/api/tracking/incident';
                     fetch(url, {
                        method: 'POST',
                        headers: { 'Content-Type': 'application/json' },

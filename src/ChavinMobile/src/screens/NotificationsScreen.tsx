@@ -9,7 +9,7 @@ import {
   Home, Receipt, ScanLine, User
 } from 'lucide-react-native';
 
-const API_URL = Platform.OS === 'web' ? 'http://localhost:5051/api' : 'http://10.0.2.2:5051/api';
+const API_URL = Platform.OS === 'web' ? 'https://technical-latina-chastenedly.ngrok-free.dev/api' : 'https://technical-latina-chastenedly.ngrok-free.dev/api';
 
 export default function NotificationsScreen({ navigation, route }: any) {
   const [activeTab, setActiveTab] = useState('Todas');

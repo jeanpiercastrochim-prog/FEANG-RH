@@ -447,18 +447,31 @@ namespace DNIContractApi.Controllers
         {
             public string SignatureBase64 { get; set; } = string.Empty;
             public bool IsBiometricValidated { get; set; }
+            public string? SignatureMetadata { get; set; }
             public string? Telefono { get; set; }
             public string? CorreoPersonal { get; set; }
             public string? ContactoEmergencia { get; set; }
             public string? Parentesco { get; set; }
             public string? TelefonoEmergencia { get; set; }
             public int? AFPId { get; set; }
+
+            public bool HasPrimary { get; set; }
+            public string? PrimarySchool { get; set; }
+            public string? PrimaryYear { get; set; }
+            public bool HasSecondary { get; set; }
+            public string? SecondarySchool { get; set; }
+            public string? SecondaryYear { get; set; }
+            public bool HasHigherEducation { get; set; }
+            public string? HigherEducationInstitution { get; set; }
+            public string? HigherEducationYear { get; set; }
         }
 
         [HttpPost("{id}/signature")]
         public async Task<IActionResult> SaveSignature(int id, [FromBody] SignatureRequest req)
         {
-            var emp = await _context.Employees.FindAsync(id);
+            var emp = await _context.Employees
+                .Include(e => e.Educations)
+                .FirstOrDefaultAsync(e => e.Id == id);
             if (emp == null) return NotFound("Empleado no encontrado.");
 
             emp.Telefono = req.Telefono;
@@ -467,6 +480,18 @@ namespace DNIContractApi.Controllers
             emp.Parentesco = req.Parentesco;
             emp.TelefonoEmergencia = req.TelefonoEmergencia;
             if (req.AFPId.HasValue) emp.AFPId = req.AFPId.Value;
+
+            emp.HasPrimary = req.HasPrimary;
+            emp.PrimarySchool = req.PrimarySchool;
+            emp.PrimaryYear = req.PrimaryYear;
+            emp.HasSecondary = req.HasSecondary;
+            emp.SecondarySchool = req.SecondarySchool;
+            emp.SecondaryYear = req.SecondaryYear;
+            emp.HasHigherEducation = req.HasHigherEducation;
+            emp.HigherEducationInstitution = req.HigherEducationInstitution;
+            emp.HigherEducationYear = req.HigherEducationYear;
+
+            await Services.DbHelper.ResolveRelationsAsync(_context, emp);
 
             if (string.IsNullOrEmpty(req.SignatureBase64))
             {
@@ -500,7 +525,37 @@ namespace DNIContractApi.Controllers
             if (req.IsBiometricValidated) {
                 emp.HasBiometrics = true;
             }
+
+            if (!string.IsNullOrEmpty(req.SignatureMetadata)) {
+                emp.SignatureMetadata = req.SignatureMetadata;
+            }
             
+            // Check if there's a pending contract process, if not, create one so it appears in HR dashboard
+            var existingContract = await _context.EmployeeContracts
+                .FirstOrDefaultAsync(c => c.EmployeeId == emp.Id && c.Status == "Pendiente");
+            
+            if (existingContract == null) {
+                var template = await _context.Contracts.FirstOrDefaultAsync();
+                if (template == null)
+                {
+                    template = new DNIContractApi.Models.Entities.Contract { Name = "Plantilla General" };
+                    _context.Contracts.Add(template);
+                    await _context.SaveChangesAsync();
+                }
+                var empContract = new DNIContractApi.Models.Entities.EmployeeContract
+                {
+                    EmployeeId = emp.Id,
+                    ContractId = template.Id,
+                    Status = "Pendiente",
+                    BiometricValidation = req.IsBiometricValidated,
+                    SignatureMetadata = req.SignatureMetadata
+                };
+                _context.EmployeeContracts.Add(empContract);
+            } else {
+                existingContract.BiometricValidation = req.IsBiometricValidated;
+                existingContract.SignatureMetadata = req.SignatureMetadata;
+            }
+
             await _context.SaveChangesAsync();
             return Ok(new { success = true });
         }

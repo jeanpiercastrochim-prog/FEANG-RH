@@ -9,6 +9,7 @@ namespace DNIContractApi.Models.DTOs
         public string? BackImagePath { get; set; }
         
         public string Status { get; set; } = "Pendiente";
+        public string? RejectionReason { get; set; }
         public string? Categoria { get; set; }
         
         public DateTime CreatedAt { get; set; }
@@ -18,6 +19,8 @@ namespace DNIContractApi.Models.DTOs
         public string ApellidoMaterno { get; set; } = string.Empty;
         public string? NumeroDNI { get; set; }
         public string? SignatureImagePath { get; set; }
+        public string? SignatureMetadata { get; set; }
+        public bool BiometricValidation { get; set; }
         public string? SistemaPensionario { get; set; } = string.Empty;
         public string FechaNacimiento { get; set; } = string.Empty;
         public string Sexo { get; set; } = string.Empty;

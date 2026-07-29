@@ -929,6 +929,7 @@ export default function PersonalRRHH() {
               <button style={tabStyle(editTab === 'laboral')} onClick={() => setEditTab('laboral')}>💼 Laboral</button>
               <button style={tabStyle(editTab === 'bancario')} onClick={() => setEditTab('bancario')}>🏦 Bancario / AFP</button>
               <button style={tabStyle(editTab === 'emergencia')} onClick={() => setEditTab('emergencia')}>🚨 Emergencia</button>
+              <button style={tabStyle(editTab === 'firma')} onClick={() => setEditTab('firma')}>✍️ Firma Digital</button>
             </div>
 
             {/* Tab Content */}
@@ -1034,6 +1035,68 @@ export default function PersonalRRHH() {
                           <FormInput label="Teléfono de Emergencia" value={editForm.telefonoEmergencia} onChange={e => setEditForm({ ...editForm, telefonoEmergencia: e.target.value })} placeholder="999 999 999" />
                         </div>
                       </div>
+                    </>
+                  )}
+
+                  {editTab === 'firma' && (
+                    <>
+                      <SectionHeader icon="✍️" title="Validación de Firma Digital" color="#0ea5e9" />
+                      {(() => {
+                        let sigMeta = null;
+                        try {
+                          if (editEmployee.signatureMetadata) {
+                            sigMeta = JSON.parse(editEmployee.signatureMetadata);
+                          }
+                        } catch(e) {}
+                        
+                        return sigMeta ? (
+                          <div style={{ background: '#f0f9ff', padding: '24px', borderRadius: '16px', border: '1px solid #bae6fd', marginBottom: '24px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                              <div>
+                                <p style={{ fontSize: '12px', fontWeight: '700', color: '#0369a1', textTransform: 'uppercase', marginBottom: '4px' }}>Validación Biométrica (Huella)</p>
+                                <p style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+                                  {sigMeta.biometricValidated ? '✅ Verificado exitosamente' : '❌ No realizada'}
+                                </p>
+                              </div>
+                              <div>
+                                <p style={{ fontSize: '12px', fontWeight: '700', color: '#0369a1', textTransform: 'uppercase', marginBottom: '4px' }}>Fecha de Firma</p>
+                                <p style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+                                  {new Date(sigMeta.signedAt).toLocaleString()}
+                                </p>
+                              </div>
+                              <div>
+                                <p style={{ fontSize: '12px', fontWeight: '700', color: '#0369a1', textTransform: 'uppercase', marginBottom: '4px' }}>Dispositivo Utilizado</p>
+                                <p style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+                                  {sigMeta.brand} {sigMeta.modelName}
+                                </p>
+                              </div>
+                              <div>
+                                <p style={{ fontSize: '12px', fontWeight: '700', color: '#0369a1', textTransform: 'uppercase', marginBottom: '4px' }}>Sistema Operativo</p>
+                                <p style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+                                  {sigMeta.osName} {sigMeta.osVersion}
+                                </p>
+                              </div>
+                            </div>
+                            
+                            {editEmployee.signatureImagePath && editEmployee.signatureImagePath !== "GENERATED_BY_HR" && (
+                              <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px dashed #bae6fd', textAlign: 'center' }}>
+                                <p style={{ fontSize: '12px', fontWeight: '700', color: '#0369a1', textTransform: 'uppercase', marginBottom: '12px' }}>Firma Digital Adjunta</p>
+                                <img src={`http://localhost:5051${editEmployee.signatureImagePath}`} alt="Firma" style={{ background: 'white', border: '1px solid #cbd5e1', borderRadius: '12px', padding: '16px', maxHeight: '120px', maxWidth: '100%', objectFit: 'contain' }} />
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div style={{ background: '#f8fafc', padding: '32px', borderRadius: '16px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+                            <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                              <ShieldCheck size={32} color="#94a3b8" />
+                            </div>
+                            <h4 style={{ fontSize: '16px', fontWeight: '700', color: '#334155', marginBottom: '8px' }}>Sin metadatos registrados</h4>
+                            <p style={{ fontSize: '14px', color: '#64748b', maxWidth: '400px', margin: '0 auto' }}>
+                              No hay metadatos de firma registrados para este contrato. O se firmó en una versión anterior de la aplicación, o no se requirió biometría.
+                            </p>
+                          </div>
+                        );
+                      })()}
                     </>
                   )}
                 </fieldset>
@@ -1554,26 +1617,50 @@ export default function PersonalRRHH() {
                 <div className="animate-fade">
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
                     {uploadedPairs.map((pair, idx) => (
-                      <div key={pair.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', background: 'white', borderRadius: '16px', border: `2px solid ${pair.front && pair.back ? '#86efac' : '#fca5a5'}`, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', transition: 'all 0.2s', transform: 'scale(1)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                          <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: pair.front && pair.back ? '#dcfce7' : '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', color: pair.front && pair.back ? '#166534' : '#991b1b', fontWeight: '800' }}>
-                            1
-                          </div>
-                          <div>
-                            <span style={{ display: 'block', fontSize: '16px', fontWeight: '800', color: '#0f172a', marginBottom: '4px' }}>DNI Detectado</span>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                              <span style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '20px', background: pair.front ? '#dcfce7' : '#fee2e2', color: pair.front ? '#166534' : '#991b1b', fontWeight: '700', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>{pair.front ? 'Anverso ✅' : 'Anverso ❌'}</span>
-                              <span style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '20px', background: pair.back ? '#dcfce7' : '#fee2e2', color: pair.back ? '#166534' : '#991b1b', fontWeight: '700', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>{pair.back ? 'Reverso ✅' : 'Reverso ❌'}</span>
+                      <div key={pair.id} style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '16px 20px', background: 'white', borderRadius: '16px', border: `2px solid ${pair.front && pair.back ? '#86efac' : '#fca5a5'}`, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: pair.front && pair.back ? '#dcfce7' : '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', color: pair.front && pair.back ? '#166534' : '#991b1b', fontWeight: '800' }}>
+                              1
+                            </div>
+                            <div>
+                              <span style={{ display: 'block', fontSize: '16px', fontWeight: '800', color: '#0f172a', marginBottom: '2px' }}>DNI Detectado</span>
+                              <span style={{ fontSize: '13px', color: '#64748b' }}>Verifica las fotos y su orden</span>
                             </div>
                           </div>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button onClick={() => removePair(pair.id)} style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#fee2e2', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }}>
+                              <Trash2 size={18} color="#ef4444" style={{ flexShrink: 0 }} />
+                            </button>
+                          </div>
                         </div>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <button onClick={() => swapSinglePhotos(pair.id)} style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#475569', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }} title="Invertir orden (Anverso/Reverso)">
-                            <RefreshCw size={18} style={{ minWidth: '18px', minHeight: '18px', width: '18px', height: '18px', flexShrink: 0 }} />
+
+                        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', background: '#f8fafc', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                            <span style={{ fontSize: '12px', fontWeight: '800', color: pair.front ? '#166534' : '#991b1b', marginBottom: '8px', padding: '4px 10px', background: pair.front ? '#dcfce7' : '#fee2e2', borderRadius: '12px' }}>
+                              {pair.front ? 'ANVERSO ✅' : 'ANVERSO ❌'}
+                            </span>
+                            {pair.front ? (
+                              <img src={URL.createObjectURL(pair.front)} style={{ width: '100%', height: '120px', objectFit: 'contain', borderRadius: '8px', backgroundColor: '#fff', border: '1px solid #cbd5e1' }} />
+                            ) : (
+                              <div style={{ width: '100%', height: '120px', background: '#e2e8f0', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '12px', border: '1px dashed #cbd5e1' }}>Falta Foto</div>
+                            )}
+                          </div>
+
+                          <button onClick={() => swapSinglePhotos(pair.id)} style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#eff6ff', border: '2px solid #bfdbfe', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s', flexShrink: 0, boxShadow: '0 4px 6px -1px rgba(59,130,246,0.2)' }} title="Invertir orden (Anverso/Reverso)">
+                            🔄
                           </button>
-                          <button onClick={() => removePair(pair.id)} style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#fee2e2', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }}>
-                            <Trash2 size={18} color="#ef4444" style={{ minWidth: '18px', minHeight: '18px', width: '18px', height: '18px', flexShrink: 0 }} />
-                          </button>
+
+                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', background: '#f8fafc', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                            <span style={{ fontSize: '12px', fontWeight: '800', color: pair.back ? '#166534' : '#991b1b', marginBottom: '8px', padding: '4px 10px', background: pair.back ? '#dcfce7' : '#fee2e2', borderRadius: '12px' }}>
+                              {pair.back ? 'REVERSO ✅' : 'REVERSO ❌'}
+                            </span>
+                            {pair.back ? (
+                              <img src={URL.createObjectURL(pair.back)} style={{ width: '100%', height: '120px', objectFit: 'contain', borderRadius: '8px', backgroundColor: '#fff', border: '1px solid #cbd5e1' }} />
+                            ) : (
+                              <div style={{ width: '100%', height: '120px', background: '#e2e8f0', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '12px', border: '1px dashed #cbd5e1' }}>Falta Foto</div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}

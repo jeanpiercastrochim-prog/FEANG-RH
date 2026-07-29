@@ -8,7 +8,7 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import { Alert } from 'react-native';
 
 const { width } = Dimensions.get('window');
-const API_URL = Platform.OS === 'web' ? 'http://localhost:5051/api' : 'http://10.0.2.2:5051/api';
+const API_URL = 'https://technical-latina-chastenedly.ngrok-free.dev/api';
 const BASE_URL = API_URL.replace('/api', '');
 
 export default function MyContractScreen({ route, navigation }: any) {

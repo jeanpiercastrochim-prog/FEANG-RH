@@ -48,28 +48,49 @@ namespace DNIContractApi.Controllers
                     ApellidoPaterno = formData["apellidoPaterno"].ToString(),
                     ApellidoMaterno = formData["apellidoMaterno"].ToString(),
                     Dni = dni,
-                    FechaNacimiento = DateTime.TryParse(formData["fechaNacimiento"].ToString(), out var dt) ? dt : DateTime.UtcNow.AddYears(-25),
-                    Sexo = formData["sexo"].ToString(),
-                    EstadoCivil = formData["estadoCivil"].ToString(),
-                    Direccion = formData["direccion"].ToString(),
-                    Departamento = formData["departamento"].ToString(),
-                    Provincia = formData["provincia"].ToString(),
-                    Distrito = formData["distrito"].ToString(),
-                    HasPrimary = formData["hasPrimary"].ToString() == "true",
-                    PrimarySchool = formData["primarySchool"].ToString(),
-                    HasSecondary = formData["hasSecondary"].ToString() == "true",
-                    SecondarySchool = formData["secondarySchool"].ToString(),
-                    HasHigherEducation = formData["hasHigherEducation"].ToString() == "true",
-                    HigherEducationInstitution = formData["higherEducationInstitution"].ToString(),
-                    Telefono = formData["telefono"].ToString(),
-                    CorreoPersonal = formData["correoPersonal"].ToString(),
-                    ContactoEmergencia = formData["contactoEmergencia"].ToString(),
-                    Parentesco = formData["parentesco"].ToString(),
-                    TelefonoEmergencia = formData["telefonoEmergencia"].ToString()
+                    Sexo = formData.ContainsKey("sexo") && !string.IsNullOrWhiteSpace(formData["sexo"].ToString()) ? formData["sexo"].ToString() : "MASCULINO",
+                    EstadoCivil = formData.ContainsKey("estadoCivil") && !string.IsNullOrWhiteSpace(formData["estadoCivil"].ToString()) ? formData["estadoCivil"].ToString() : "SOLTERO",
+                    Direccion = formData.ContainsKey("direccion") ? formData["direccion"].ToString() : "",
+                    Departamento = formData.ContainsKey("departamento") ? formData["departamento"].ToString() : "LIMA",
+                    Provincia = formData.ContainsKey("provincia") ? formData["provincia"].ToString() : "LIMA",
+                    Distrito = formData.ContainsKey("distrito") ? formData["distrito"].ToString() : "LIMA",
+                    FechaNacimiento = formData.ContainsKey("fechaNacimiento") && DateTime.TryParse(formData["fechaNacimiento"].ToString(), out var fn) ? fn : DateTime.UtcNow.AddYears(-25),
+                    BaseSalary = 0,
+                    Position = "Colaborador",
+                    FechaIngreso = DateTime.UtcNow.Date,
+                    HasPrimary = formData.ContainsKey("hasPrimary") && formData["hasPrimary"].ToString() == "true",
+                    PrimarySchool = formData.ContainsKey("primarySchool") ? formData["primarySchool"].ToString() : "",
+                    HasSecondary = formData.ContainsKey("hasSecondary") && formData["hasSecondary"].ToString() == "true",
+                    SecondarySchool = formData.ContainsKey("secondarySchool") ? formData["secondarySchool"].ToString() : "",
+                    HasHigherEducation = formData.ContainsKey("hasHigherEducation") && formData["hasHigherEducation"].ToString() == "true",
+                    HigherEducationInstitution = formData.ContainsKey("higherEducationInstitution") ? formData["higherEducationInstitution"].ToString() : "",
+                    Telefono = formData.ContainsKey("telefono") ? formData["telefono"].ToString() : "",
+                    CorreoPersonal = formData.ContainsKey("correoPersonal") ? formData["correoPersonal"].ToString() : "",
+                    ContactoEmergencia = formData.ContainsKey("contactoEmergencia") ? formData["contactoEmergencia"].ToString() : "",
+                    Parentesco = formData.ContainsKey("parentesco") ? formData["parentesco"].ToString() : "",
+                    TelefonoEmergencia = formData.ContainsKey("telefonoEmergencia") ? formData["telefonoEmergencia"].ToString() : ""
                 };
                 await Services.DbHelper.ResolveRelationsAsync(_context, employee);
                 _context.Employees.Add(employee);
                 await _context.SaveChangesAsync();
+            }
+            else
+            {
+                // Actualizar empleado existente si tiene campos faltantes
+                bool updated = false;
+                if (formData.ContainsKey("sexo") && !string.IsNullOrWhiteSpace(formData["sexo"].ToString())) { employee.Sexo = formData["sexo"].ToString(); updated = true; }
+                if (formData.ContainsKey("estadoCivil") && !string.IsNullOrWhiteSpace(formData["estadoCivil"].ToString())) { employee.EstadoCivil = formData["estadoCivil"].ToString(); updated = true; }
+                if (formData.ContainsKey("direccion") && !string.IsNullOrWhiteSpace(formData["direccion"].ToString())) { employee.Direccion = formData["direccion"].ToString(); updated = true; }
+                if (formData.ContainsKey("departamento") && !string.IsNullOrWhiteSpace(formData["departamento"].ToString())) { employee.Departamento = formData["departamento"].ToString(); updated = true; }
+                if (formData.ContainsKey("provincia") && !string.IsNullOrWhiteSpace(formData["provincia"].ToString())) { employee.Provincia = formData["provincia"].ToString(); updated = true; }
+                if (formData.ContainsKey("distrito") && !string.IsNullOrWhiteSpace(formData["distrito"].ToString())) { employee.Distrito = formData["distrito"].ToString(); updated = true; }
+                if (formData.ContainsKey("fechaNacimiento") && DateTime.TryParse(formData["fechaNacimiento"].ToString(), out var fnUpdated)) { employee.FechaNacimiento = fnUpdated; updated = true; }
+
+                if (updated)
+                {
+                    await Services.DbHelper.ResolveRelationsAsync(_context, employee);
+                    await _context.SaveChangesAsync();
+                }
             }
             if (formData.ContainsKey("signatureBase64"))
             {
@@ -135,6 +156,19 @@ namespace DNIContractApi.Controllers
             return Ok(processes);
         }
 
+        [HttpGet("latest/{dni}")]
+        public async Task<IActionResult> GetLatestProcess(string dni)
+        {
+            var ec = await _context.EmployeeContracts
+                .Include(c => c.Employee)
+                .Where(c => c.Employee.Dni == dni)
+                .OrderByDescending(c => c.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            if (ec == null) return NotFound();
+            return Ok(new { id = ec.Id, status = ec.Status });
+        }
+
         [HttpGet("{id}")]
         public async Task<IActionResult> GetProcess(string id)
         {
@@ -168,6 +202,7 @@ namespace DNIContractApi.Controllers
             {
                 Id = ec.Id.ToString(),
                 Status = ec.Status,
+                RejectionReason = ec.RejectionReason,
                 Categoria = ec.Employee.Position,
                 CreatedAt = ec.CreatedAt,
                 FrontImagePath = photo?.FrontImagePath,
@@ -177,6 +212,8 @@ namespace DNIContractApi.Controllers
                 ApellidoMaterno = ec.Employee.ApellidoMaterno,
                 NumeroDNI = ec.Employee.Dni,
                 SignatureImagePath = ec.Employee.SignatureImagePath,
+                SignatureMetadata = ec.SignatureMetadata ?? ec.Employee.SignatureMetadata,
+                BiometricValidation = ec.BiometricValidation || ec.Employee.HasBiometrics,
                 SistemaPensionario = ec.Employee.CodigoAFP,
                 FechaNacimiento = ec.Employee.FechaNacimiento.ToString("yyyy-MM-dd"),
                 Sexo = ec.Employee.Sexo,
@@ -232,6 +269,7 @@ namespace DNIContractApi.Controllers
             public int? AFPId { get; set; }
             public string? SignatureBase64 { get; set; }
             public bool IsBiometricValidated { get; set; }
+            public string? SignatureMetadata { get; set; }
         }
 
         [HttpPost("submit-mobile")]
@@ -291,13 +329,16 @@ namespace DNIContractApi.Controllers
                 employee.HasBiometrics = true;
             }
 
-            var photo = new DniPhoto
+            if (!string.IsNullOrEmpty(req.FrontImagePath) || !string.IsNullOrEmpty(req.BackImagePath))
             {
-                EmployeeId = employee.Id,
-                FrontImagePath = req.FrontImagePath,
-                BackImagePath = req.BackImagePath
-            };
-            _context.DniPhotos.Add(photo);
+                var photo = new DniPhoto
+                {
+                    EmployeeId = employee.Id,
+                    FrontImagePath = req.FrontImagePath,
+                    BackImagePath = req.BackImagePath
+                };
+                _context.DniPhotos.Add(photo);
+            }
 
             var template = await _context.Contracts.FirstOrDefaultAsync();
             if (template == null)
@@ -311,7 +352,9 @@ namespace DNIContractApi.Controllers
             {
                 EmployeeId = employee.Id,
                 ContractId = template.Id,
-                Status = "Pendiente"
+                Status = "Pendiente",
+                SignatureMetadata = req.SignatureMetadata,
+                BiometricValidation = req.IsBiometricValidated
             };
             _context.EmployeeContracts.Add(empContract);
             await _context.SaveChangesAsync();
@@ -430,6 +473,24 @@ namespace DNIContractApi.Controllers
             if (ec == null) return NotFound();
 
             _context.EmployeeContracts.Remove(ec);
+            await _context.SaveChangesAsync();
+            return Ok(new { success = true });
+        }
+
+        public class RejectRequest
+        {
+            public string Reason { get; set; } = string.Empty;
+        }
+
+        [HttpPost("{id}/reject")]
+        public async Task<IActionResult> RejectProcess(string id, [FromBody] RejectRequest req)
+        {
+            if (!Guid.TryParse(id, out var guidId)) return BadRequest("Formato de GUID inválido.");
+            var ec = await _context.EmployeeContracts.FirstOrDefaultAsync(c => c.Id == guidId);
+            if (ec == null) return NotFound();
+
+            ec.Status = "Rechazado";
+            ec.RejectionReason = req.Reason;
             await _context.SaveChangesAsync();
             return Ok(new { success = true });
         }

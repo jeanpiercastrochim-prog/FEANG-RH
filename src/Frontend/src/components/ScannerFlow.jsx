@@ -427,13 +427,33 @@ export default function ScannerFlow({ role, onBack }) {
         const data = await response.json();
         setOcrData(data); // Load all DB response directly
         setCapturedImages({ 
-          front: `http://127.0.0.1:5051${data.frontImagePath}`,
-          back: `http://127.0.0.1:5051${data.backImagePath}`,
+          front: data.frontImagePath ? `http://127.0.0.1:5051${data.frontImagePath}` : null,
+          back: data.backImagePath ? `http://127.0.0.1:5051${data.backImagePath}` : null,
           signature: data.signatureImagePath ? `http://127.0.0.1:5051${data.signatureImagePath}` : null
         });
         setStep(2); // Go to Data Confirmation
       } else {
         alert("No se pudo cargar el proceso.");
+      }
+    } catch (e) {
+      alert("Error: " + e.message);
+    }
+    setLoading(false);
+  };
+
+  const handleReject = async (reason) => {
+    setLoading(true);
+    setLoadingText("Rechazando proceso...");
+    try {
+      const res = await fetch(`${API_URL}/Process/${ocrData.id}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason })
+      });
+      if (res.ok) {
+        setStep(0);
+      } else {
+        alert("No se pudo rechazar el proceso.");
       }
     } catch (e) {
       alert("Error: " + e.message);
@@ -611,6 +631,7 @@ export default function ScannerFlow({ role, onBack }) {
                 handleInputChange={handleInputChange} 
                 generateContract={() => setStep(2.5)}
                 onBack={() => setStep(0)}
+                onReject={handleReject}
                 role={role}
               />
             </div>

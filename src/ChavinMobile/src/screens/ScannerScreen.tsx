@@ -6,7 +6,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Camera as CameraIcon, Image as ImageIcon, BrainCircuit, ScanText } from 'lucide-react-native';
 import axios from 'axios';
 
-const API_URL = Platform.OS === 'web' ? 'http://localhost:5051/api' : 'http://10.0.2.2:5051/api';
+const API_URL = Platform.OS === 'web' ? 'https://technical-latina-chastenedly.ngrok-free.dev/api' : 'https://technical-latina-chastenedly.ngrok-free.dev/api';
 
 export default function ScannerScreen({ navigation, route }: any) {
   const employee = route.params?.employee;

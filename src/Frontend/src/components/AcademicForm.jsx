@@ -13,16 +13,40 @@ export default function AcademicForm({ data, onDataChange, onSubmit, onBack }) {
     }
   };
 
-  // Validación: si marcó "sí" debe escribir el nombre
-  const errors = {
-    primarySchool:           data.hasPrimary === true  && !(data.primarySchool || '').trim(),
-    secondarySchool:         data.hasSecondary === true && !(data.secondarySchool || '').trim(),
-    higherEducationInstitution: data.hasHigherEducation === true && !(data.higherEducationInstitution || '').trim(),
+  const getBirthYear = (fecha) => {
+    if (!fecha) return null;
+    const match = fecha.match(/\d{4}/);
+    return match ? parseInt(match[0]) : null;
   };
+  const birthYear = getBirthYear(data.fechaNacimiento);
+
+  const validateYear = (val, minAge, maxAgeDiff) => {
+    if (!val) return "Campo obligatorio";
+    const y = parseInt(val);
+    const currYear = new Date().getFullYear();
+    if (isNaN(y) || val.length !== 4) return "Año inválido";
+    if (y > currYear + maxAgeDiff) return `Máx. año ${currYear + maxAgeDiff}`;
+    if (birthYear && y < birthYear + minAge) return `Edad inválida (Mín ${birthYear + minAge})`;
+    return null;
+  };
+
+  const errPrimaryYear = data.hasPrimary === true ? validateYear(data.primaryYear, 11, -3) : null;
+  const errSecondaryYear = data.hasSecondary === true ? validateYear(data.secondaryYear, 15, 0) : null;
+  const errHigherYear = data.hasHigherEducation === true ? validateYear(data.higherEducationYear, 17, 5) : null;
+
+  const errors = {
+    primarySchool: data.hasPrimary === true && !(data.primarySchool || '').trim(),
+    primaryYear: !!errPrimaryYear,
+    secondarySchool: data.hasSecondary === true && !(data.secondarySchool || '').trim(),
+    secondaryYear: !!errSecondaryYear,
+    higherEducationInstitution: data.hasHigherEducation === true && !(data.higherEducationInstitution || '').trim(),
+    higherEducationYear: !!errHigherYear,
+  };
+  
   const hasErrors = Object.values(errors).some(Boolean);
 
   const handleSubmit = () => {
-    if (hasErrors) return; // el botón ya lo bloquea visualmente, doble seguro
+    if (hasErrors) return; 
     onSubmit();
   };
 
@@ -64,11 +88,15 @@ export default function AcademicForm({ data, onDataChange, onSubmit, onBack }) {
   const showSecondary = data.hasPrimary === true && primaryConfirmed;
   const showHigherEducation = data.hasSecondary === true && secondaryConfirmed;
 
+  const primaryValid = (data.primarySchool || '').trim().length > 2 && !errPrimaryYear;
+  const secondaryValid = (data.secondarySchool || '').trim().length > 2 && !errSecondaryYear;
+  const higherValid = (data.higherEducationInstitution || '').trim().length > 2 && !errHigherYear;
+
   const isFlowComplete = 
     data.hasPrimary === false ||
-    (data.hasPrimary === true && primaryConfirmed && data.hasSecondary === false) ||
-    (data.hasPrimary === true && primaryConfirmed && data.hasSecondary === true && secondaryConfirmed && data.hasHigherEducation === false) ||
-    (data.hasPrimary === true && primaryConfirmed && data.hasSecondary === true && secondaryConfirmed && data.hasHigherEducation === true && (data.higherEducationInstitution || '').trim().length > 2);
+    (data.hasPrimary === true && primaryConfirmed && data.hasSecondary === false && primaryValid) ||
+    (data.hasPrimary === true && primaryConfirmed && data.hasSecondary === true && secondaryConfirmed && data.hasHigherEducation === false && primaryValid && secondaryValid) ||
+    (data.hasPrimary === true && primaryConfirmed && data.hasSecondary === true && secondaryConfirmed && data.hasHigherEducation === true && primaryValid && secondaryValid && higherValid);
 
   // Voice Guidance Hook
   const prevStates = useRef({ hasPrimary: undefined, hasSecondary: undefined, hasHigherEducation: undefined, primaryConfirmed: false, secondaryConfirmed: false });
@@ -90,15 +118,15 @@ export default function AcademicForm({ data, onDataChange, onSubmit, onBack }) {
        textToSpeak = "Muy bien, ya tengo tus datos personales. Ahora hablemos de tu educación. Dime, ¿Llegaste a completar la educación primaria?";
     } else {
        if (currentStates.hasPrimary === true && prevStates.current.hasPrimary !== true) {
-         textToSpeak = "Excelente. ¿En qué colegio estudiaste la primaria? Escribe el nombre por favor.";
+         textToSpeak = "Excelente. ¿En qué colegio estudiaste la primaria y en qué año terminaste?";
        } else if (currentStates.primaryConfirmed && !prevStates.current.primaryConfirmed) {
          textToSpeak = "Muy bien. Y dime, ¿Completaste la educación secundaria?";
        } else if (currentStates.hasSecondary === true && prevStates.current.hasSecondary !== true) {
-         textToSpeak = "Perfecto. ¿En qué colegio estudiaste la secundaria?";
+         textToSpeak = "Perfecto. ¿En qué colegio estudiaste la secundaria y en qué año terminaste?";
        } else if (currentStates.secondaryConfirmed && !prevStates.current.secondaryConfirmed) {
          textToSpeak = "Excelente. Finalmente, ¿Llegaste a cursar educación superior?";
        } else if (currentStates.hasHigherEducation === true && prevStates.current.hasHigherEducation !== true) {
-         textToSpeak = "Muy bien. Por favor escribe el nombre de la institución y presiona continuar cuando termines.";
+         textToSpeak = "Muy bien. Por favor escribe el nombre de la institución y el año.";
        } else if (currentStates.hasPrimary === false && prevStates.current.hasPrimary !== false) {
          textToSpeak = "Entendido. Presiona continuar para avanzar al siguiente paso.";
        }
@@ -153,31 +181,47 @@ export default function AcademicForm({ data, onDataChange, onSubmit, onBack }) {
                 {renderHugeRadioCard('hasPrimary', 'No la completé', false, data.hasPrimary === false, 'cross')}
               </div>
               {data.hasPrimary && (
-                <div className="premium-input-group animate-fade" style={{ marginTop: 'auto', paddingTop: '20px' }}>
-                  <label style={{ fontSize: '14px', fontWeight: '600', color: '#475569' }}>Nombre del Colegio (Primaria)</label>
-                  <div style={{ position: 'relative' }}>
+                <div className="premium-input-group animate-fade" style={{ marginTop: 'auto', paddingTop: '20px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                  <div style={{ flex: '2', minWidth: '150px' }}>
+                    <label style={{ fontSize: '14px', fontWeight: '600', color: '#475569' }}>Nombre del Colegio</label>
                     <input
                       type="text"
-                      placeholder="Ej. IE 1024 Maria Parado..."
+                      placeholder="Ej. IE 1024 Maria..."
                       value={data.primarySchool || ''}
                       onChange={(e) => {
                         onDataChange('primarySchool', e.target.value);
                         setPrimaryConfirmed(false);
                       }}
-                      onBlur={() => {
-                        if ((data.primarySchool || '').trim().length > 0) setPrimaryConfirmed(true);
-                      }}
                       style={{ padding: '14px', fontSize: '15px', borderRadius: '12px', border: `2px solid ${errors.primarySchool ? '#f43f5e' : '#e2e8f0'}`, width: '100%', background: 'white', outline: 'none', transition: 'border-color 0.2s' }}
                     />
-                    {!primaryConfirmed && (data.primarySchool || '').trim().length > 2 && (
-                      <button type="button" onClick={() => setPrimaryConfirmed(true)} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', padding: '6px 16px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', fontSize: '13px', zIndex: 2, boxShadow: '0 4px 10px rgba(59, 130, 246, 0.3)' }}>
+                  </div>
+                  <div style={{ flex: '1', minWidth: '100px', position: 'relative' }}>
+                    <label style={{ fontSize: '14px', fontWeight: '600', color: '#475569' }}>Año Fin</label>
+                    <input
+                      type="number"
+                      placeholder="Ej. 2005"
+                      value={data.primaryYear || ''}
+                      onChange={(e) => {
+                        onDataChange('primaryYear', e.target.value);
+                        setPrimaryConfirmed(false);
+                      }}
+                      style={{ padding: '14px', fontSize: '15px', borderRadius: '12px', border: `2px solid ${errors.primaryYear ? '#f43f5e' : '#e2e8f0'}`, width: '100%', background: 'white', outline: 'none', transition: 'border-color 0.2s' }}
+                    />
+                    {!primaryConfirmed && primaryValid && (
+                      <button type="button" onClick={() => setPrimaryConfirmed(true)} style={{ position: 'absolute', right: '-120px', top: '50%', padding: '10px 16px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', fontSize: '13px', zIndex: 2, boxShadow: '0 4px 10px rgba(59, 130, 246, 0.3)' }}>
                         Siguiente
                       </button>
                     )}
                   </div>
+                  
                   {errors.primarySchool && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', color: '#f43f5e', fontSize: '13px', fontWeight: '500' }}>
-                      <AlertCircle size={14} color="#f43f5e" /> Este campo es obligatorio
+                    <div style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', color: '#f43f5e', fontSize: '13px', fontWeight: '500' }}>
+                      <AlertCircle size={14} color="#f43f5e" /> Colegio obligatorio
+                    </div>
+                  )}
+                  {errPrimaryYear && (
+                    <div style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', color: '#f43f5e', fontSize: '13px', fontWeight: '500' }}>
+                      <AlertCircle size={14} color="#f43f5e" /> {errPrimaryYear}
                     </div>
                   )}
                 </div>
@@ -193,9 +237,9 @@ export default function AcademicForm({ data, onDataChange, onSubmit, onBack }) {
                   {renderHugeRadioCard('hasSecondary', 'No la completé', false, data.hasSecondary === false, 'cross')}
                 </div>
                 {data.hasSecondary && (
-                  <div className="premium-input-group animate-fade" style={{ marginTop: 'auto', paddingTop: '20px' }}>
-                    <label style={{ fontSize: '14px', fontWeight: '600', color: '#475569' }}>Nombre del Colegio (Secundaria)</label>
-                    <div style={{ position: 'relative' }}>
+                  <div className="premium-input-group animate-fade" style={{ marginTop: 'auto', paddingTop: '20px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    <div style={{ flex: '2', minWidth: '150px' }}>
+                      <label style={{ fontSize: '14px', fontWeight: '600', color: '#475569' }}>Nombre del Colegio</label>
                       <input
                         type="text"
                         placeholder="Ej. Colegio Nacional..."
@@ -204,20 +248,35 @@ export default function AcademicForm({ data, onDataChange, onSubmit, onBack }) {
                           onDataChange('secondarySchool', e.target.value);
                           setSecondaryConfirmed(false);
                         }}
-                        onBlur={() => {
-                          if ((data.secondarySchool || '').trim().length > 0) setSecondaryConfirmed(true);
-                        }}
                         style={{ padding: '14px', fontSize: '15px', borderRadius: '12px', border: `2px solid ${errors.secondarySchool ? '#f43f5e' : '#e2e8f0'}`, width: '100%', background: 'white', outline: 'none', transition: 'border-color 0.2s' }}
                       />
-                      {!secondaryConfirmed && (data.secondarySchool || '').trim().length > 2 && (
-                        <button type="button" onClick={() => setSecondaryConfirmed(true)} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', padding: '6px 16px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', fontSize: '13px', zIndex: 2, boxShadow: '0 4px 10px rgba(59, 130, 246, 0.3)' }}>
+                    </div>
+                    <div style={{ flex: '1', minWidth: '100px', position: 'relative' }}>
+                      <label style={{ fontSize: '14px', fontWeight: '600', color: '#475569' }}>Año Fin</label>
+                      <input
+                        type="number"
+                        placeholder="Ej. 2010"
+                        value={data.secondaryYear || ''}
+                        onChange={(e) => {
+                          onDataChange('secondaryYear', e.target.value);
+                          setSecondaryConfirmed(false);
+                        }}
+                        style={{ padding: '14px', fontSize: '15px', borderRadius: '12px', border: `2px solid ${errors.secondaryYear ? '#f43f5e' : '#e2e8f0'}`, width: '100%', background: 'white', outline: 'none', transition: 'border-color 0.2s' }}
+                      />
+                      {!secondaryConfirmed && secondaryValid && (
+                        <button type="button" onClick={() => setSecondaryConfirmed(true)} style={{ position: 'absolute', right: '-120px', top: '50%', padding: '10px 16px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', fontSize: '13px', zIndex: 2, boxShadow: '0 4px 10px rgba(59, 130, 246, 0.3)' }}>
                           Siguiente
                         </button>
                       )}
                     </div>
                     {errors.secondarySchool && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', color: '#f43f5e', fontSize: '13px', fontWeight: '500' }}>
-                        <AlertCircle size={14} color="#f43f5e" /> Este campo es obligatorio
+                      <div style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', color: '#f43f5e', fontSize: '13px', fontWeight: '500' }}>
+                        <AlertCircle size={14} color="#f43f5e" /> Colegio obligatorio
+                      </div>
+                    )}
+                    {errSecondaryYear && (
+                      <div style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', color: '#f43f5e', fontSize: '13px', fontWeight: '500' }}>
+                        <AlertCircle size={14} color="#f43f5e" /> {errSecondaryYear}
                       </div>
                     )}
                   </div>
@@ -229,16 +288,16 @@ export default function AcademicForm({ data, onDataChange, onSubmit, onBack }) {
           {/* Fila 2: Estudios Superiores — centrado */}
           {showHigherEducation && (
             <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <div className="academic-section animate-fade" style={{ background: '#f8fafc', padding: '30px 24px', borderRadius: '24px', border: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', width: '50%', minWidth: '300px' }}>
+              <div className="academic-section animate-fade" style={{ background: '#f8fafc', padding: '30px 24px', borderRadius: '24px', border: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', width: '50%', minWidth: '400px' }}>
                 <h3 style={{ fontSize: '20px', color: '#334155', marginBottom: '24px', fontWeight: '700', textAlign: 'center' }}>¿Estudios superiores?</h3>
                 <div style={{ display: 'flex', gap: '16px', marginBottom: data.hasHigherEducation ? '24px' : '0' }}>
                   {renderHugeRadioCard('hasHigherEducation', 'Sí, los tengo', true, data.hasHigherEducation === true, 'check')}
                   {renderHugeRadioCard('hasHigherEducation', 'No tengo', false, data.hasHigherEducation === false, 'cross')}
                 </div>
                 {data.hasHigherEducation && (
-                  <div className="premium-input-group animate-fade" style={{ marginTop: 'auto', paddingTop: '20px' }}>
-                    <label style={{ fontSize: '14px', fontWeight: '600', color: '#475569' }}>Institución o Universidad</label>
-                    <div style={{ position: 'relative' }}>
+                  <div className="premium-input-group animate-fade" style={{ marginTop: 'auto', paddingTop: '20px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    <div style={{ flex: '2', minWidth: '150px' }}>
+                      <label style={{ fontSize: '14px', fontWeight: '600', color: '#475569' }}>Institución / Universidad</label>
                       <input
                         type="text"
                         placeholder="Ej. SENATI o San Marcos"
@@ -249,9 +308,26 @@ export default function AcademicForm({ data, onDataChange, onSubmit, onBack }) {
                         style={{ padding: '14px', fontSize: '15px', borderRadius: '12px', border: `2px solid ${errors.higherEducationInstitution ? '#f43f5e' : '#e2e8f0'}`, width: '100%', background: 'white', outline: 'none', transition: 'border-color 0.2s' }}
                       />
                     </div>
+                    <div style={{ flex: '1', minWidth: '100px' }}>
+                      <label style={{ fontSize: '14px', fontWeight: '600', color: '#475569' }}>Año Fin</label>
+                      <input
+                        type="number"
+                        placeholder="Ej. 2015"
+                        value={data.higherEducationYear || ''}
+                        onChange={(e) => {
+                          onDataChange('higherEducationYear', e.target.value);
+                        }}
+                        style={{ padding: '14px', fontSize: '15px', borderRadius: '12px', border: `2px solid ${errors.higherEducationYear ? '#f43f5e' : '#e2e8f0'}`, width: '100%', background: 'white', outline: 'none', transition: 'border-color 0.2s' }}
+                      />
+                    </div>
                     {errors.higherEducationInstitution && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', color: '#f43f5e', fontSize: '13px', fontWeight: '500' }}>
-                        <AlertCircle size={14} color="#f43f5e" /> Este campo es obligatorio
+                      <div style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', color: '#f43f5e', fontSize: '13px', fontWeight: '500' }}>
+                        <AlertCircle size={14} color="#f43f5e" /> Institución obligatoria
+                      </div>
+                    )}
+                    {errHigherYear && (
+                      <div style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', color: '#f43f5e', fontSize: '13px', fontWeight: '500' }}>
+                        <AlertCircle size={14} color="#f43f5e" /> {errHigherYear}
                       </div>
                     )}
                   </div>

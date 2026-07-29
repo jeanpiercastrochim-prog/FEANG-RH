@@ -241,7 +241,8 @@ export default function ContactEmergencyForm({ data, onDataChange, onSubmit, onB
                       placeholder="Ej. María Flores Ramos"
                       value={data.contactoEmergencia || ''}
                       onChange={(e) => {
-                        onDataChange('contactoEmergencia', e.target.value);
+                        const val = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
+                        onDataChange('contactoEmergencia', val);
                         setContactoEmergenciaConfirmed(false);
                       }}
                       onBlur={() => handleBlur('contactoEmergencia')}

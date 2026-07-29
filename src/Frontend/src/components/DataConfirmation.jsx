@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { CheckCircle2, Camera, Maximize2, Contact2, Edit2, Info, ArrowLeft, ArrowRight, Check, Clock, UserCheck, Search, Image as ImageIcon, Crosshair, AlertTriangle, ShieldCheck, GraduationCap, X as CloseIcon, BookOpen, Book, Award, Volume2 } from 'lucide-react';
 
-const DataConfirmation = ({ ocrData, capturedImages, handleInputChange, generateContract, onBack, role }) => {
+const DataConfirmation = ({ ocrData, capturedImages, handleInputChange, generateContract, onBack, onReject, role }) => {
   const fields = [
     { label: 'Nombres:', value: ocrData.nombres },
     { label: 'Apellido Paterno:', value: ocrData.apellidoPaterno },
@@ -19,6 +19,16 @@ const DataConfirmation = ({ ocrData, capturedImages, handleInputChange, generate
   const [isEditing, setIsEditing] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [currentTime, setCurrentTime] = useState('');
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const [signatureModalOpen, setSignatureModalOpen] = useState(false);
+  
+  let signatureMeta = null;
+  try {
+    if (ocrData.signatureMetadata) {
+      signatureMeta = JSON.parse(ocrData.signatureMetadata);
+    }
+  } catch (e) {}
 
   useEffect(() => {
     const now = new Date();
@@ -89,6 +99,12 @@ const DataConfirmation = ({ ocrData, capturedImages, handleInputChange, generate
           <button onClick={onBack} className="btn-glass-secondary">
             <ArrowLeft size={18} /> Volver
           </button>
+          <button onClick={() => setRejectModalOpen(true)} className="btn-glass-secondary" style={{ color: '#ef4444', borderColor: '#ef4444', background: '#fef2f2' }}>
+            <CloseIcon size={18} /> Rechazar
+          </button>
+          <button onClick={() => setSignatureModalOpen(true)} className="btn-glass-secondary" style={{ color: '#0ea5e9', borderColor: '#0ea5e9', background: '#f0f9ff' }}>
+            <ShieldCheck size={18} /> Validación de firma
+          </button>
           <button onClick={generateContract} className="btn-glass-primary">
             Proceder al Contrato <ArrowRight size={18} />
           </button>
@@ -151,15 +167,33 @@ const DataConfirmation = ({ ocrData, capturedImages, handleInputChange, generate
               <h3>Evidencia Fotográfica</h3>
             </div>
             <div className="dni-showcase">
-              <div className="dni-frame" onClick={() => setSelectedImage(capturedImages?.front || "/dni_front.png")} style={{ cursor: 'pointer' }}>
+              <div className="dni-frame" onClick={() => capturedImages?.front && setSelectedImage(capturedImages.front)} style={{ cursor: capturedImages?.front ? 'pointer' : 'default' }}>
                 <div className="dni-tag">Anverso</div>
-                <img src={capturedImages?.front || "/dni_front.png"} alt="Frente DNI" />
-                <div className="zoom-hint"><Maximize2 size={14} /> Hover para ampliar</div>
+                {capturedImages?.front ? (
+                  <>
+                    <img src={capturedImages.front} alt="Frente DNI" />
+                    <div className="zoom-hint"><Maximize2 size={14} /> Hover para ampliar</div>
+                  </>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', background: '#f8fafc', color: '#64748b' }}>
+                    <ImageIcon size={32} style={{ marginBottom: '8px', opacity: 0.5 }} />
+                    <span style={{ fontSize: '13px', fontWeight: '500' }}>Sin imagen (App Móvil)</span>
+                  </div>
+                )}
               </div>
-              <div className="dni-frame" onClick={() => setSelectedImage(capturedImages?.back || "/dni_back.png")} style={{ cursor: 'pointer' }}>
+              <div className="dni-frame" onClick={() => capturedImages?.back && setSelectedImage(capturedImages.back)} style={{ cursor: capturedImages?.back ? 'pointer' : 'default' }}>
                 <div className="dni-tag">Reverso</div>
-                <img src={capturedImages?.back || "/dni_back.png"} alt="Reverso DNI" />
-                <div className="zoom-hint"><Maximize2 size={14} /> Hover para ampliar</div>
+                {capturedImages?.back ? (
+                  <>
+                    <img src={capturedImages.back} alt="Reverso DNI" />
+                    <div className="zoom-hint"><Maximize2 size={14} /> Hover para ampliar</div>
+                  </>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', background: '#f8fafc', color: '#64748b' }}>
+                    <ImageIcon size={32} style={{ marginBottom: '8px', opacity: 0.5 }} />
+                    <span style={{ fontSize: '13px', fontWeight: '500' }}>Sin imagen (App Móvil)</span>
+                  </div>
+                )}
               </div>
               {capturedImages?.signature && (
                 <div className="dni-frame" onClick={() => setSelectedImage(capturedImages.signature)} style={{ cursor: 'pointer', background: 'white' }}>
@@ -243,7 +277,7 @@ const DataConfirmation = ({ ocrData, capturedImages, handleInputChange, generate
                         style={{ width: '100%', padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '14px', marginTop: '4px' }}
                       />
                     ) : (
-                      <span className="p-data-value">{ocrData[key] || <span className="empty-val">No detectado</span>}</span>
+                      <span className="p-data-value">{ocrData[key] || <span className="empty-val" style={{ color: '#f59e0b', fontStyle: 'italic' }}>Falta rellenar</span>}</span>
                     )}
                   </div>
                 );
@@ -358,6 +392,91 @@ const DataConfirmation = ({ ocrData, capturedImages, handleInputChange, generate
               style={{ maxWidth: '100%', maxHeight: '90vh', objectFit: 'contain', borderRadius: '12px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }} 
               onClick={(e) => e.stopPropagation()}
             />
+          </div>
+        </div>
+      )}
+      {/* REJECT MODAL */}
+      {rejectModalOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(4px)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn 0.2s ease-out' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '24px', padding: '32px', width: '90%', maxWidth: '420px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+              <div style={{ width: '56px', height: '56px', borderRadius: '28px', backgroundColor: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444', border: '4px solid #fff1f2' }}>
+                <AlertTriangle size={28} />
+              </div>
+              <button onClick={() => setRejectModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}>
+                <CloseIcon size={24} />
+              </button>
+            </div>
+            
+            <h3 style={{ fontSize: '22px', fontWeight: '800', color: '#0f172a', marginBottom: '12px' }}>Rechazar Solicitud</h3>
+            <p style={{ fontSize: '15px', color: '#64748b', marginBottom: '24px', lineHeight: '1.6' }}>
+              Escribe el motivo del rechazo. El colaborador verá este mensaje en su aplicación para poder corregir el error.
+            </p>
+            
+            <textarea
+              placeholder="Ej: La foto del DNI está borrosa, por favor tómala de nuevo con buena luz."
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              style={{ width: '100%', height: '100px', padding: '12px', borderRadius: '12px', border: '1px solid #cbd5e1', marginBottom: '24px', resize: 'none', fontSize: '14px', fontFamily: 'inherit' }}
+            />
+            
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button 
+                onClick={() => setRejectModalOpen(false)}
+                style={{ flex: 1, padding: '14px', background: 'white', border: '1px solid #e2e8f0', borderRadius: '14px', color: '#475569', fontSize: '15px', fontWeight: '700', cursor: 'pointer' }}
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={() => {
+                  if(!rejectReason.trim()) return alert("Debes escribir un motivo.");
+                  setRejectModalOpen(false);
+                  onReject(rejectReason);
+                }}
+                style={{ flex: 1, padding: '14px', background: '#ef4444', border: 'none', borderRadius: '14px', color: 'white', fontSize: '15px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.25)' }}
+              >
+                Confirmar Rechazo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SIGNATURE VALIDATION MODAL */}
+      {signatureModalOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(4px)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn 0.2s ease-out' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '24px', padding: '32px', width: '90%', maxWidth: '420px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+              <div style={{ width: '56px', height: '56px', borderRadius: '28px', backgroundColor: '#f0f9ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0ea5e9', border: '4px solid #e0f2fe' }}>
+                <ShieldCheck size={28} />
+              </div>
+              <button onClick={() => setSignatureModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}>
+                <CloseIcon size={24} />
+              </button>
+            </div>
+            
+            <h3 style={{ fontSize: '22px', fontWeight: '800', color: '#0f172a', marginBottom: '12px' }}>Validación de Firma</h3>
+            
+            {signatureMeta ? (
+              <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', marginBottom: '24px', border: '1px solid #e2e8f0' }}>
+                <p style={{ fontSize: '14px', color: '#475569', marginBottom: '8px' }}><strong>Validación Biométrica (Huella):</strong> {signatureMeta.biometricValidated ? '✅ Exitosa' : '❌ No realizada'}</p>
+                <p style={{ fontSize: '14px', color: '#475569', marginBottom: '8px' }}><strong>Dispositivo:</strong> {signatureMeta.brand} {signatureMeta.modelName}</p>
+                <p style={{ fontSize: '14px', color: '#475569', marginBottom: '8px' }}><strong>Sistema Operativo:</strong> {signatureMeta.osName} {signatureMeta.osVersion}</p>
+                <p style={{ fontSize: '14px', color: '#475569', marginBottom: '8px' }}><strong>Fecha y Hora Exacta:</strong> {new Date(signatureMeta.signedAt).toLocaleString()}</p>
+                <p style={{ fontSize: '14px', color: '#475569', marginBottom: '8px' }}><strong>Es Físico:</strong> {signatureMeta.isDevice ? 'Sí' : 'No (Emulador)'}</p>
+              </div>
+            ) : (
+              <p style={{ fontSize: '15px', color: '#64748b', marginBottom: '24px', lineHeight: '1.6' }}>
+                No hay metadatos de firma registrados para este contrato. O se firmó en una versión anterior de la aplicación, o no se requirió biometría.
+              </p>
+            )}
+            
+            <button 
+              onClick={() => setSignatureModalOpen(false)}
+              style={{ width: '100%', padding: '14px', background: 'white', border: '1px solid #e2e8f0', borderRadius: '14px', color: '#475569', fontSize: '15px', fontWeight: '700', cursor: 'pointer' }}
+            >
+              Cerrar
+            </button>
           </div>
         </div>
       )}

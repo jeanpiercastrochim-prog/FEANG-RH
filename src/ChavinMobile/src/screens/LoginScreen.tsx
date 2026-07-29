@@ -7,9 +7,11 @@ import {
   User, Lock, Eye, EyeOff, ArrowRight, 
   CheckSquare, Square, Leaf, Sun, Settings, ScanFace 
 } from 'lucide-react-native';
-import { Modal } from 'react-native';
+import { Modal, Alert } from 'react-native';
+import * as LocalAuthentication from 'expo-local-authentication';
+import * as SecureStore from 'expo-secure-store';
 
-const API_URL = Platform.OS === 'web' ? 'http://localhost:5051/api' : 'http://10.0.2.2:5051/api';
+const API_URL = 'https://technical-latina-chastenedly.ngrok-free.dev/api';
 const { width } = Dimensions.get('window');
 
 export default function LoginScreen({ navigation }: any) {
@@ -45,12 +47,44 @@ export default function LoginScreen({ navigation }: any) {
     try {
       const response = await axios.post(`${API_URL}/Auth/login`, { dni, password });
       if (response.data.success) {
+        try {
+          if (Platform.OS !== 'web') {
+            const compatible = await LocalAuthentication.hasHardwareAsync();
+            const enrolled = await LocalAuthentication.isEnrolledAsync();
+            if (compatible && enrolled) {
+              const biometricsEnabled = await SecureStore.getItemAsync('biometrics_enabled');
+              if (!biometricsEnabled) {
+                Alert.alert(
+                  "Habilitar Biometría",
+                  "¿Deseas usar tu huella para iniciar sesión en el futuro?",
+                  [
+                    { text: "No, gracias", style: "cancel" },
+                    { text: "Sí, habilitar", onPress: async () => {
+                        await SecureStore.setItemAsync('saved_dni', dni);
+                        await SecureStore.setItemAsync('saved_password', password);
+                        await SecureStore.setItemAsync('biometrics_enabled', 'true');
+                        alert("Biometría habilitada exitosamente.");
+                    }}
+                  ]
+                );
+              } else {
+                 await SecureStore.setItemAsync('saved_dni', dni);
+                 await SecureStore.setItemAsync('saved_password', password);
+              }
+            }
+          }
+        } catch(e) {}
+
         if (response.data.requiresPasswordChange) {
           setTempEmployee(response.data.employee);
           setShowChangePassword(true);
         } else {
           if (response.data.employee.rol === 'Transportista') {
             navigation.navigate('Driver', { employee: response.data.employee });
+          } else if (response.data.employee.rol === 'Almacenero') {
+            navigation.navigate('Almacen', { employee: response.data.employee });
+          } else if (response.data.employee.rol === 'Admin') {
+            navigation.navigate('AdminSelection', { employee: response.data.employee });
           } else {
             navigation.navigate('Home', { employee: response.data.employee });
           }
@@ -100,6 +134,10 @@ export default function LoginScreen({ navigation }: any) {
         setConfirmPassword('');
         if (tempEmployee?.rol === 'Transportista') {
           navigation.navigate('Driver', { employee: tempEmployee });
+        } else if (tempEmployee?.rol === 'Almacenero') {
+          navigation.navigate('Almacen', { employee: tempEmployee });
+        } else if (tempEmployee?.rol === 'Admin') {
+          navigation.navigate('AdminSelection', { employee: tempEmployee });
         } else {
           navigation.navigate('Home', { employee: tempEmployee });
         }
@@ -109,6 +147,60 @@ export default function LoginScreen({ navigation }: any) {
       else alert('Error al cambiar la contraseña.');
     } finally {
       setPasswordChangeLoading(false);
+    }
+  };
+
+  const handleBiometricLogin = async () => {
+    if (Platform.OS === 'web') {
+       alert("La biometría no está disponible en la web.");
+       return;
+    }
+    try {
+      const compatible = await LocalAuthentication.hasHardwareAsync();
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+      
+      if (!compatible || !enrolled) {
+        alert("Tu dispositivo no soporta o no tiene configurada la biometría.");
+        return;
+      }
+
+      const biometricsEnabled = await SecureStore.getItemAsync('biometrics_enabled');
+      const savedDni = await SecureStore.getItemAsync('saved_dni');
+      const savedPassword = await SecureStore.getItemAsync('saved_password');
+
+      if (!biometricsEnabled || !savedDni || !savedPassword) {
+        alert("Primero debes iniciar sesión con tu DNI y contraseña para habilitar la biometría.");
+        return;
+      }
+
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Inicia sesión con tu huella',
+        fallbackLabel: 'Usar contraseña'
+      });
+
+      if (result.success) {
+        setDni(savedDni);
+        setPassword(savedPassword);
+        
+        setLoading(true);
+        const response = await axios.post(`${API_URL}/Auth/login`, { dni: savedDni, password: savedPassword });
+        if (response.data.success) {
+           if (response.data.requiresPasswordChange) {
+             setTempEmployee(response.data.employee);
+             setShowChangePassword(true);
+           } else {
+             const emp = response.data.employee;
+             if (emp.rol === 'Transportista') navigation.navigate('Driver', { employee: emp });
+             else if (emp.rol === 'Almacenero') navigation.navigate('Almacen', { employee: emp });
+             else if (emp.rol === 'Admin') navigation.navigate('AdminSelection', { employee: emp });
+             else navigation.navigate('Home', { employee: emp });
+           }
+        }
+        setLoading(false);
+      }
+    } catch (e) {
+      alert("Error al usar biometría.");
+      setLoading(false);
     }
   };
 
@@ -140,7 +232,7 @@ export default function LoginScreen({ navigation }: any) {
 
             {/* GREETING */}
             <View style={styles.greetingSection}>
-              <Text style={styles.welcomeText}>¡Bienvenido! 👋</Text>
+              <Text style={styles.welcomeText}>¡Bienvenido! ðŸ‘‹</Text>
               <Text style={styles.subtitleText}>
                 Inicia sesión para acceder a tu portal de colaborador
               </Text>
@@ -228,7 +320,7 @@ export default function LoginScreen({ navigation }: any) {
 
             {/* BIOMETRICS */}
             <View style={styles.biometricsSection}>
-              <TouchableOpacity style={styles.biometricsCircle}>
+              <TouchableOpacity style={styles.biometricsCircle} onPress={handleBiometricLogin}>
                 <ScanFace color="#3b82f6" size={32} />
               </TouchableOpacity>
               <Text style={styles.biometricsText}>Usar biometría</Text>
